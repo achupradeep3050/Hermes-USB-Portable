@@ -335,12 +335,14 @@ echo "        This may take 3-10 minutes depending on your connection."
 VENV_PYTHON="$VENV_DIR/bin/python"
 
 # Try uv first (faster), fall back to pip on unsupported filesystem (e.g. ExFAT)
-if ! "$UV_EXE" pip install --python "$VENV_PYTHON" --link-mode=copy -e "$SRC_DIR/hermes-agent[all]" 2>/dev/null; then
+# NOTE: "anthropic" is added explicitly — the kimi-coding / Anthropic providers
+# need the anthropic SDK, which hermes-agent[all] does NOT pull in.
+if ! "$UV_EXE" pip install --python "$VENV_PYTHON" --link-mode=copy -e "$SRC_DIR/hermes-agent[all]" "anthropic>=0.39.0" 2>/dev/null; then
     echo "        uv install failed — falling back to pip ..."
     if ! "$VENV_PYTHON" -m ensurepip --upgrade >/dev/null 2>&1; then
         echo "[WARN] Could not install pip in virtual environment"
     fi
-    if ! "$VENV_PYTHON" -m pip install -e "$SRC_DIR/hermes-agent[all]"; then
+    if ! "$VENV_PYTHON" -m pip install -e "$SRC_DIR/hermes-agent[all]" "anthropic>=0.39.0"; then
         echo "[ERROR] Failed to install Hermes dependencies"
         exit 1
     fi

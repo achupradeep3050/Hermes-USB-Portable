@@ -44,6 +44,23 @@ esac
 RUNTIME_DIR="$CACHE_DIR/runtimes/${PLATFORM}-${ARCH}"
 
 # ---------------------------------------------------------------------------
+# Friendly device + OS identity (used in the dashboard and device memory)
+# ---------------------------------------------------------------------------
+DEVICE_HOST="$(hostname 2>/dev/null | cut -d. -f1)"
+[ -z "$DEVICE_HOST" ] && DEVICE_HOST="unknown-host"
+case "$PLATFORM" in
+    macos)
+        _osv="$(sw_vers -productVersion 2>/dev/null)"
+        PRETTY_OS="macOS ${_osv:-} (${ARCH})" ;;
+    linux)
+        _osn="$( . /etc/os-release 2>/dev/null; echo "$PRETTY_NAME" )"
+        PRETTY_OS="${_osn:-Linux} (${ARCH})" ;;
+    windows) PRETTY_OS="Windows (${ARCH})" ;;
+    *) PRETTY_OS="${PLATFORM} (${ARCH})" ;;
+esac
+DEVICE_SLUG="$(echo "${DEVICE_HOST}-${PLATFORM}-${ARCH}" | tr ' /._' '----' | tr 'A-Z' 'a-z')"
+
+# ---------------------------------------------------------------------------
 # First-run setup
 # ---------------------------------------------------------------------------
 if [ ! -f "$RUNTIME_DIR/ready.flag" ]; then
@@ -107,10 +124,12 @@ if [ ! -x "$VIRTUAL_ENV/bin/python" ]; then
     fi
     if ! "$UV_EXE" pip install --python "$VIRTUAL_ENV/bin/python" --link-mode=copy \
         -e "$SRC_DIR/hermes-agent[all]" \
+        "anthropic>=0.39.0" \
         "python-telegram-bot[webhooks]==22.6" 2>/dev/null; then
         "$VIRTUAL_ENV/bin/python" -m ensurepip --upgrade >/dev/null 2>&1 || true
         "$VIRTUAL_ENV/bin/python" -m pip install \
             -e "$SRC_DIR/hermes-agent[all]" \
+            "anthropic>=0.39.0" \
             "python-telegram-bot[webhooks]==22.6" 2>/dev/null || true
     fi
     echo "[OK]    Venv rebuilt."
@@ -131,6 +150,52 @@ export NPM_CONFIG_PREFIX="$RUNTIME_DIR/node"
 # Prevent Node/npm from writing to host home directory
 export HOME="$PORTABLE_ROOT/.cache/unix-home"
 mkdir -p "$HOME"
+
+# ---------------------------------------------------------------------------
+# Portable Brain (obsidian-wiki) wiring
+# The drive mounts at a different absolute path on every machine, so rewrite
+# the vault path here at launch time. Keeps the brain 100% portable.
+# ---------------------------------------------------------------------------
+BRAIN_VAULT="$PORTABLE_ROOT/Brain"
+if [ -d "$BRAIN_VAULT" ]; then
+    export OBSIDIAN_VAULT_PATH="$BRAIN_VAULT"
+    if [ -f "$BRAIN_VAULT/.env" ]; then
+        sed -e "s|^OBSIDIAN_VAULT_PATH=.*|OBSIDIAN_VAULT_PATH=$BRAIN_VAULT|" \
+            -e "s|^HERMES_HOME=.*|HERMES_HOME=$HERMES_HOME|" \
+            "$BRAIN_VAULT/.env" > "$BRAIN_VAULT/.env.tmp" 2>/dev/null \
+            && mv "$BRAIN_VAULT/.env.tmp" "$BRAIN_VAULT/.env"
+    fi
+    # Global fallback config for the wiki skills' config-resolution protocol.
+    mkdir -p "$HOME/.obsidian-wiki"
+    {
+        echo "OBSIDIAN_VAULT_PATH=$BRAIN_VAULT"
+        echo "HERMES_HOME=$HERMES_HOME"
+        echo "OBSIDIAN_CATEGORIES=concepts,entities,skills,references,synthesis,journal"
+        echo "OBSIDIAN_LINK_FORMAT=wikilink"
+    } > "$HOME/.obsidian-wiki/config"
+fi
+
+# ---------------------------------------------------------------------------
+# Git / GitHub wiring — let Hermes clone/commit/push the owner's repos.
+# Token comes from data/.env (GITHUB_TOKEN). Identity + a credential store are
+# written into the PORTABLE HOME (.cache/unix-home), never the host's ~/.
+# Regenerated each launch so a rotated token just works.
+# ---------------------------------------------------------------------------
+GITHUB_TOKEN_VAL="$(grep -m1 '^GITHUB_TOKEN=' "$HERMES_HOME/.env" 2>/dev/null | cut -d= -f2- | tr -d "\"'")"
+GIT_OK="no"
+if command -v git >/dev/null 2>&1; then
+    git config --global user.name "Achu Pradeep" 2>/dev/null || true
+    git config --global user.email "achupradeep3050@gmail.com" 2>/dev/null || true
+    git config --global init.defaultBranch main 2>/dev/null || true
+    if [ -n "$GITHUB_TOKEN_VAL" ]; then
+        printf 'https://x-access-token:%s@github.com\n' "$GITHUB_TOKEN_VAL" > "$HOME/.git-credentials"
+        chmod 600 "$HOME/.git-credentials" 2>/dev/null || true
+        git config --global credential.helper store 2>/dev/null || true
+        export GITHUB_TOKEN="$GITHUB_TOKEN_VAL"
+        export GH_TOKEN="$GITHUB_TOKEN_VAL"
+        GIT_OK="yes"
+    fi
+fi
 
 # ---------------------------------------------------------------------------
 # Launch Hermes
@@ -199,7 +264,8 @@ detect_status() {
     GATEWAY_PID=""
 
     if [ -f "$HERMES_HOME/gateway.pid" ]; then
-        GATEWAY_PID=$(grep -o '"pid":[0-9]*' "$HERMES_HOME/gateway.pid" | grep -o '[0-9]*' || true)
+        # Hermes writes  "pid": 14029  (WITH a space) — match optional whitespace.
+        GATEWAY_PID=$(grep -oE '"pid"[[:space:]]*:[[:space:]]*[0-9]+' "$HERMES_HOME/gateway.pid" 2>/dev/null | grep -oE '[0-9]+' | head -1 || true)
     fi
 
     if [ -n "$GATEWAY_PID" ]; then
@@ -218,6 +284,35 @@ detect_status() {
     if [ -f "$SRC_DIR/hermes-agent/hermes_cli/__init__.py" ]; then
         HERMES_VERSION=$(grep '__version__' "$SRC_DIR/hermes-agent/hermes_cli/__init__.py" | head -n 1 | sed 's/.*"\(.*\)".*/\1/')
     fi
+
+    # Brain (Obsidian) + connection status
+    BRAIN_VAULT="${BRAIN_VAULT:-$PORTABLE_ROOT/Brain}"
+    BRAIN_PAGES=0
+    if [ -d "$BRAIN_VAULT" ]; then
+        BRAIN_PAGES=$(find "$BRAIN_VAULT" -name '*.md' -not -path '*/.obsidian/*' 2>/dev/null | wc -l | tr -d ' ')
+    fi
+    TELEGRAM_STATUS="Not set"
+    grep -qE '^TELEGRAM_BOT_TOKEN=.+' "$HERMES_HOME/.env" 2>/dev/null && TELEGRAM_STATUS="Configured"
+    GIT_STATUS="Not set"
+    grep -qE '^GITHUB_TOKEN=.+' "$HERMES_HOME/.env" 2>/dev/null && GIT_STATUS="Configured"
+}
+
+# ---------------------------------------------------------------------------
+# Telegram: ping the owner when the gateway comes online.
+# Reads the bot token + chat id straight from data/.env (no extra config).
+# This works even if the model has no quota — it's a direct Bot API call.
+# ---------------------------------------------------------------------------
+gateway_notify() {
+    local tok chat
+    tok=$(grep -m1 '^TELEGRAM_BOT_TOKEN=' "$HERMES_HOME/.env" 2>/dev/null | cut -d= -f2- | tr -d "\"'" )
+    chat=$(grep -m1 '^TELEGRAM_ALLOWED_USERS=' "$HERMES_HOME/.env" 2>/dev/null | cut -d= -f2- | tr -d "\"'" | cut -d, -f1)
+    [ -z "$chat" ] && chat=$(grep -m1 '^TELEGRAM_CHAT_ID=' "$HERMES_HOME/.env" 2>/dev/null | cut -d= -f2- | tr -d "\"'")
+    if [ -n "$tok" ] && [ -n "$chat" ] && command -v curl >/dev/null 2>&1; then
+        curl -s -m 10 "https://api.telegram.org/bot${tok}/sendMessage" \
+            -d chat_id="${chat}" \
+            --data-urlencode "text=🛸 Hermes gateway is ONLINE${1:+ (PID $1)}. I'm listening on Telegram — send me a message!" \
+            >/dev/null 2>&1 &
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -231,16 +326,24 @@ show_menu() {
     echo -e "${DIM}${GRAY}                         AI Agent for Everyone${RESET}"
     echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
     echo ""
+    echo -e " ${DIM}Device${RESET}   ${WHITE}${DEVICE_HOST}${RESET} ${GRAY}·${RESET} ${CYAN}${PRETTY_OS}${RESET}"
     echo -e " ${DIM}Setup${RESET}    ${SETUP_COLOR}${SETUP_ICON}${RESET} ${WHITE}${SETUP_STATUS}${RESET}"
     [ -n "$PROVIDER_NAME" ] && echo -e " ${DIM}Provider${RESET} ${CYAN}${PROVIDER_NAME}${RESET}"
     [ -n "$MODEL_NAME" ] && echo -e " ${DIM}Model${RESET}    ${WHITE}${MODEL_NAME}${RESET}"
+    if [ "${BRAIN_PAGES:-0}" -gt 0 ] 2>/dev/null; then
+        echo -e " ${DIM}Brain${RESET}    ${BRIGHT_GREEN}[OK]${RESET} ${WHITE}${BRAIN_PAGES} pages${RESET} ${GRAY}(Obsidian vault)${RESET}"
+    else
+        echo -e " ${DIM}Brain${RESET}    ${GRAY}[ ] not built${RESET}"
+    fi
     echo -e " ${DIM}Gateway${RESET}  ${GATEWAY_COLOR}${GATEWAY_ICON}${RESET} ${WHITE}${GATEWAY_STATUS}${RESET}"
+    echo -e " ${DIM}Telegram${RESET} ${WHITE}${TELEGRAM_STATUS}${RESET}   ${DIM}Git${RESET} ${WHITE}${GIT_STATUS}${RESET}"
     echo -e " ${DIM}Version${RESET}  ${GRAY}v${HERMES_VERSION}${RESET}"
     echo ""
     echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
     echo ""
     echo -e "  ${BRIGHT_YELLOW}[1]${RESET}  ${WHITE}Start Hermes Chat${RESET}"
     echo -e "  ${BRIGHT_YELLOW}[2]${RESET}  ${WHITE}Setup / Reconfigure Hermes${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[M]${RESET}  ${WHITE}Switch Model / Provider${RESET}  ${GRAY}fast${RESET}"
     if [ "$GATEWAY_STATUS" = "Running (PID $GATEWAY_PID)" ]; then
         echo -e "  ${BRIGHT_YELLOW}[3]${RESET}  ${WHITE}Stop Gateway${RESET}  ${RED}[live]${RESET}"
     else
@@ -259,6 +362,7 @@ show_menu() {
         3) menu_gateway ;;
         4) show_advanced ;;
         5) menu_exit ;;
+        m|M) menu_model ;;
         *) show_menu ;;
     esac
 }
@@ -276,6 +380,67 @@ menu_setup() {
     show_menu
 }
 
+# ---------------------------------------------------------------------------
+# Fast model / provider switcher
+# ---------------------------------------------------------------------------
+_apply_model() {   # provider  model  base_url(""=none)  [ENVKEY=VALUE]
+    local p="$1" m="$2" b="$3" e="$4"
+    if [ -n "$e" ]; then
+        python "$PORTABLE_ROOT/scripts/switch-model.py" --config "$HERMES_HOME/config.yaml" --env "$HERMES_HOME/.env" --provider "$p" --model "$m" --base-url "$b" --set-env "$e"
+    else
+        python "$PORTABLE_ROOT/scripts/switch-model.py" --config "$HERMES_HOME/config.yaml" --env "$HERMES_HOME/.env" --provider "$p" --model "$m" --base-url "$b"
+    fi
+}
+
+menu_model() {
+    clear
+    echo ""
+    echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
+    echo -e "${BOLD}${BRIGHT_WHITE}                  Switch Model / Provider${RESET}"
+    echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
+    echo ""
+    echo -e "  ${BRIGHT_YELLOW}[1]${RESET}  ${WHITE}Kimi for Coding${RESET}      ${GRAY}cloud (current default)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[2]${RESET}  ${WHITE}Ollama${RESET}               ${GRAY}local LLM server${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[3]${RESET}  ${WHITE}LM Studio${RESET}            ${GRAY}local LLM server${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[4]${RESET}  ${WHITE}Google Gemini${RESET}        ${GRAY}cloud (API key)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[5]${RESET}  ${WHITE}OpenRouter${RESET}           ${GRAY}cloud, 300+ models${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[6]${RESET}  ${WHITE}Anthropic Claude${RESET}     ${GRAY}cloud (API key)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[7]${RESET}  ${WHITE}Custom endpoint${RESET}      ${GRAY}any OpenAI-compatible URL${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[8]${RESET}  ${WHITE}Full interactive picker${RESET}  ${GRAY}(hermes model)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[9]${RESET}  ${GRAY}Back${RESET}"
+    echo ""
+    read -p "$(echo -e "${BRIGHT_CYAN}Select model: ${RESET}")" mc
+    case "$mc" in
+        1) _apply_model "kimi-coding" "kimi-for-coding" "" ;;
+        2) read -p "Ollama model [llama3.1]: " m; m=${m:-llama3.1}
+           read -p "Ollama URL [http://localhost:11434/v1]: " u; u=${u:-http://localhost:11434/v1}
+           _apply_model "custom" "$m" "$u" "OPENAI_API_KEY=ollama" ;;
+        3) read -p "LM Studio model (name shown in LM Studio): " m
+           read -p "LM Studio URL [http://127.0.0.1:1234/v1]: " u; u=${u:-http://127.0.0.1:1234/v1}
+           _apply_model "lmstudio" "$m" "$u" ;;
+        4) read -p "Gemini model [gemini-2.5-flash]: " m; m=${m:-gemini-2.5-flash}
+           read -p "GEMINI_API_KEY: " k
+           _apply_model "gemini" "$m" "" "GEMINI_API_KEY=$k" ;;
+        5) read -p "OpenRouter model [anthropic/claude-sonnet-4]: " m; m=${m:-anthropic/claude-sonnet-4}
+           read -p "OPENROUTER_API_KEY: " k
+           _apply_model "openrouter" "$m" "" "OPENROUTER_API_KEY=$k" ;;
+        6) read -p "Claude model [claude-sonnet-4-6]: " m; m=${m:-claude-sonnet-4-6}
+           read -p "ANTHROPIC_API_KEY: " k
+           _apply_model "anthropic" "$m" "" "ANTHROPIC_API_KEY=$k" ;;
+        7) read -p "Base URL (OpenAI-compatible): " u
+           read -p "Model name: " m
+           read -p "API key (blank if none): " k
+           if [ -n "$k" ]; then _apply_model "custom" "$m" "$u" "OPENAI_API_KEY=$k"; else _apply_model "custom" "$m" "$u"; fi ;;
+        8) hermes model ;;
+        9) detect_status; show_menu; return ;;
+        *) menu_model; return ;;
+    esac
+    echo ""
+    read -p "Press Enter to continue ..."
+    detect_status
+    show_menu
+}
+
 menu_gateway() {
     if [ "$GATEWAY_STATUS" = "Running (PID $GATEWAY_PID)" ]; then
         hermes gateway stop
@@ -283,9 +448,28 @@ menu_gateway() {
         echo -e "${BRIGHT_GREEN}Gateway stopped.${RESET}"
     else
         echo ""
-        echo -e "${CYAN}Starting gateway in background ...${RESET}"
-        hermes gateway &
-        sleep 2
+        echo -e "${CYAN}Starting gateway (detached) ...${RESET}"
+        # Fully detach so the launcher/terminal is NEVER held by the gateway:
+        #   - stdin from /dev/null  (gateway can't grab the TTY)
+        #   - stdout/stderr to log  (no console spew)
+        #   - nohup + disown        (survives terminal close, off the job table)
+        # We use `gateway run` (foreground worker) but background it ourselves —
+        # this is portable (no host launchd/systemd pollution) unlike `gateway start`.
+        mkdir -p "$HERMES_HOME/logs"
+        nohup hermes gateway run > "$HERMES_HOME/logs/gateway.log" 2>&1 < /dev/null &
+        disown 2>/dev/null || true
+        echo -e "${DIM}Waiting for the gateway to come up ...${RESET}"
+        sleep 4
+        detect_status
+        if [ "$GATEWAY_STATUS" = "Running (PID $GATEWAY_PID)" ]; then
+            echo -e "${BRIGHT_GREEN}Gateway started (PID $GATEWAY_PID).${RESET}"
+            echo -e "${DIM}Logs: data/logs/gateway.log${RESET}"
+            gateway_notify "$GATEWAY_PID"
+            echo -e "${CYAN}Sent you a Telegram ping — check @Hermes3050bot.${RESET}"
+        else
+            echo -e "${YELLOW}Gateway didn't report ready yet — check Advanced > View Logs.${RESET}"
+            tail -n 5 "$HERMES_HOME/logs/gateway.log" 2>/dev/null
+        fi
     fi
     read -p "Press Enter to continue ..."
     detect_status
@@ -359,9 +543,20 @@ adv_config() {
 }
 
 adv_restart() {
-    hermes gateway restart
-    echo ""
-    echo -e "${BRIGHT_GREEN}Gateway restarted.${RESET}"
+    echo -e "${CYAN}Restarting gateway (detached) ...${RESET}"
+    hermes gateway stop 2>/dev/null || true
+    sleep 1
+    mkdir -p "$HERMES_HOME/logs"
+    nohup hermes gateway run > "$HERMES_HOME/logs/gateway.log" 2>&1 < /dev/null &
+    disown 2>/dev/null || true
+    sleep 4
+    detect_status
+    if [ "$GATEWAY_STATUS" = "Running (PID $GATEWAY_PID)" ]; then
+        echo -e "${BRIGHT_GREEN}Gateway restarted (PID $GATEWAY_PID).${RESET}"
+        gateway_notify "$GATEWAY_PID"
+    else
+        echo -e "${YELLOW}Gateway didn't report ready — check Advanced > View Logs.${RESET}"
+    fi
     read -p "Press Enter to continue ..."
     detect_status
     show_menu
@@ -375,7 +570,79 @@ adv_update() {
 }
 
 # ---------------------------------------------------------------------------
+# Device memory — record THIS machine (and what works on it) into the brain,
+# so the Obsidian vault remembers every device the drive has run on.
+# ---------------------------------------------------------------------------
+record_device() {
+    [ -d "$BRAIN_VAULT" ] || return 0
+    local dir="$BRAIN_VAULT/devices"
+    mkdir -p "$dir" 2>/dev/null || return 0
+    local now first f rt
+    now="$(date '+%Y-%m-%d %H:%M' 2>/dev/null || echo unknown)"
+    f="$dir/${DEVICE_SLUG}.md"
+    first="$now"
+    if [ -f "$f" ]; then
+        first="$(grep -m1 '^first_seen:' "$f" 2>/dev/null | sed 's/^first_seen:[[:space:]]*//')"
+        [ -z "$first" ] && first="$now"
+    fi
+    rt="missing"; [ -f "$RUNTIME_DIR/ready.flag" ] && rt="ready"
+    cat > "$f" <<EOF
+---
+title: Device — ${DEVICE_HOST} (${PRETTY_OS})
+category: devices
+tags: [device, ${PLATFORM}, ${ARCH}]
+first_seen: ${first}
+last_seen: ${now}
+---
+
+# ${DEVICE_HOST} — ${PRETTY_OS}
+
+- **Platform:** ${PRETTY_OS}  (\`${PLATFORM}-${ARCH}\`)
+- **Runtime:** ${rt}  (\`.cache/runtimes/${PLATFORM}-${ARCH}\`)
+- **Model last used:** ${MODEL_NAME:-unset} (${PROVIDER_NAME:-?})
+- **Setup:** ${SETUP_STATUS}
+- **Gateway (last seen):** ${GATEWAY_STATUS}
+- **Telegram:** ${TELEGRAM_STATUS}  ·  **Git:** ${GIT_STATUS}
+- **Brain pages:** ${BRAIN_PAGES}
+- **First seen:** ${first}  ·  **Last seen:** ${now}
+
+*Auto-updated by launch.sh every time the drive runs on this machine.*
+EOF
+    if [ ! -f "$dir/_log.md" ]; then
+        printf '# Device Run Log\n\nEvery launch of this drive, on every machine.\n\n' > "$dir/_log.md"
+    fi
+    echo "- [${now}] ${DEVICE_HOST} · ${PRETTY_OS} · model=${MODEL_NAME:-unset} · gateway=${GATEWAY_STATUS} · runtime=${rt}" >> "$dir/_log.md"
+}
+
+# ---------------------------------------------------------------------------
+# Startup splash — shows where we are, what loaded, brain optimized, etc.
+# ---------------------------------------------------------------------------
+startup_banner() {
+    clear
+    echo ""
+    echo -e "${BRIGHT_CYAN}================================================================${RESET}"
+    echo -e "${BOLD}${BRIGHT_WHITE}            HERMES PORTABLE  —  starting up${RESET}"
+    echo -e "${BRIGHT_CYAN}================================================================${RESET}"
+    echo ""
+    echo -e "  ${BRIGHT_GREEN}OK${RESET}  Running on ${CYAN}${PRETTY_OS}${RESET} as ${WHITE}${DEVICE_HOST}${RESET}"
+    echo -e "  ${BRIGHT_GREEN}OK${RESET}  Portable runtime loaded ${GRAY}(.cache/runtimes/${PLATFORM}-${ARCH})${RESET}"
+    echo -e "  ${BRIGHT_GREEN}OK${RESET}  Model ${WHITE}${MODEL_NAME:-unset}${RESET} via ${CYAN}${PROVIDER_NAME:-?}${RESET}"
+    if [ "${BRAIN_PAGES:-0}" -gt 0 ] 2>/dev/null; then
+        echo -e "  ${BRIGHT_GREEN}OK${RESET}  Obsidian brain optimized & ready ${WHITE}(${BRAIN_PAGES} pages)${RESET} ${GRAY}-> Brain/${RESET}"
+    else
+        echo -e "  ${YELLOW}!!${RESET}  Obsidian brain not found at Brain/"
+    fi
+    echo -e "  ${BRIGHT_GREEN}OK${RESET}  Telegram ${WHITE}${TELEGRAM_STATUS}${RESET}  ${GRAY}|${RESET}  Git ${WHITE}${GIT_STATUS}${RESET}"
+    echo -e "  ${BRIGHT_GREEN}OK${RESET}  This device remembered ${GRAY}(Brain/devices/${DEVICE_SLUG}.md)${RESET}"
+    echo ""
+    echo -e "  ${DIM}Opening dashboard ...${RESET}"
+    sleep 2
+}
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 detect_status
+record_device
+startup_banner
 show_menu

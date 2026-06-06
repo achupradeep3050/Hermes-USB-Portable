@@ -4,3 +4,11 @@ data/
 src/
 *.flag
 *.log
+
+# Personal Obsidian brain (long-term memory) — travels on the drive, NOT in the public repo.
+# Sync it to a PRIVATE repo if you want it backed up.
+Brain/
+
+# Session handoff / scratch notes
+MAC-HANDOFF-PROMPT.md
+*.console.err
