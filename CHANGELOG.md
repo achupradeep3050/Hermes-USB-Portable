@@ -2,6 +2,11 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.4.1] — 2026-06-07
+
+### Fixed
+- **`launch.bat -z "<multi-word prompt>"` (and any quoted passthrough args) crashed** with `is was unexpected at this time` before Hermes ever ran. Root cause: the direct-run path used `if not "%ARGS%"=="" ( hermes %ARGS% )`, which expands `%ARGS%` at *parse* time — so quotes/commas/parens inside the prompt got re-parsed as batch syntax and broke the `if`-block. Now it detects passthrough args via `%~1` and runs `hermes !ARGS!` on a bare line with **delayed expansion**, so the prompt reaches Hermes verbatim. Verified on LEGION: `launch.bat -z "In 8 words: your name, owner, and brain folder (no tools)."` runs clean and Herme replies. (Caveat: a literal `!` in the prompt is consumed by delayed expansion.) macOS `launch.sh` already handled this correctly via `bash`.
+
 ## [portable-v1.4.0] — 2026-06-07
 
 ### Fixed

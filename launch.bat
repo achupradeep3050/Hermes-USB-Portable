@@ -166,15 +166,20 @@ call :ckpt "runtime verified (hermes.exe present)"
 
 cd /d "%SRC_DIR%\hermes-agent"
 
-REM Strip "hermes" from the start of arguments if user typed "launch.bat hermes setup"
+REM Strip a leading "hermes" if the user typed "launch.bat hermes setup".
 set "ARGS=%*"
-if /I "%~1"=="hermes" (
-    set "ARGS=%ARGS:~7%"
-)
+if /I "%~1"=="hermes" set "ARGS=%ARGS:~7%"
 
-REM If explicit arguments were passed, run Hermes directly (skip menu)
-if not "%ARGS%"=="" (
-    hermes %ARGS%
+REM If explicit arguments were passed, run Hermes directly (skip the menu).
+REM Detect with %~1 (quote-stripped, no special chars) and run on a bare line
+REM using DELAYED expansion (!ARGS!) so quotes/commas/parens inside a prompt —
+REM e.g.  launch.bat -z "What is your name, friend (test)?"  — are passed
+REM through to hermes verbatim instead of being re-parsed as batch syntax. The
+REM old  if not "%ARGS%"=="" ( hermes %ARGS% )  form expanded %ARGS% at parse
+REM time and died with "is was unexpected at this time" on any quoted prompt.
+REM (Caveat: a literal "!" in the prompt is consumed by delayed expansion.)
+if not "%~1"=="" (
+    hermes !ARGS!
     exit /b
 )
 
