@@ -2,6 +2,18 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.3.0] — 2026-06-06
+
+### Added
+- **Hermes Dashboard** — new main-menu shortcut **`[D] Open Dashboard`**. Launches hermes-agent's web UI (config, API keys, sessions, in-browser chat) at **`http://127.0.0.1:9119`**, bound to localhost only. Runs `hermes dashboard --skip-build` so startup is instant and needs no Node/npm at runtime; Ctrl-C stops it and returns to the menu.
+- **Frontend pre-built onto the drive** — the Vite/React SPA is built once into `src/hermes-agent/hermes_cli/web_dist/` (vite `outDir`), so the dashboard serves a static bundle. `web/node_modules` is kept on the drive too, so a future rebuild works offline. The launcher auto-builds on first run if the dist is missing.
+- Backend deps (`fastapi`/`uvicorn`/`starlette`) already ship via `hermes-agent[all]`, which the launcher installs on every venv (re)build — so the dashboard survives temp-venv rebuilds.
+
+### Notes
+- **Security:** the dashboard binds to `127.0.0.1` only; on loopback the SPA carries an ephemeral session token injected at serve time, so `/api/*` writes require it (verified: `/api/config` 200 with token, 401 without). Never expose it with `--insecure` on an untrusted network.
+- Verified end-to-end: `bash -n` clean; `npm run build` → `web_dist` (index.html + assets); live server returns `GET / → 200`, `/api/status → 200` (public), `/api/config` & `/api/sessions → 200` (authenticated), `401` without token; `--skip-build`, `--stop`, `--status` all work.
+- Gemini (v1.2.0) confirmed on the **subscription / standard-tier** via Cloud Code Assist (not API-key credits): `loadCodeAssist` reports `current_tier_id=standard-tier`, quota ~97% on the pro models, live inference OK.
+
 ## [portable-v1.2.0] — 2026-06-06
 
 ### Added

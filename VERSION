@@ -1,12 +1,17 @@
 # Hermes-USB-Portable — version pin
 # Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
 
-portable_version:        portable-v1.2.0
+portable_version:        portable-v1.3.0
 hermes_agent_version:    0.16.0
 hermes_agent_upstream:   NousResearch/hermes-agent
 hermes_agent_commit:     56236b16e383cc656bb8c88429902f4de83f1faf
 synced_on:               2026-06-06
 
+# v1.3.0 — added "[D] Open Dashboard" launcher option: serves hermes-agent's web
+#          UI (FastAPI + prebuilt Vite SPA) at http://127.0.0.1:9119 via
+#          `hermes dashboard --skip-build`. Frontend pre-built onto the drive
+#          (hermes_cli/web_dist); fastapi/uvicorn ride the [all] extra. See
+#          CHANGELOG.md + docs/DASHBOARD.md.
 # v1.2.0 — added "Google Gemini — Login with Google" model option (OAuth, no API
 #          key) wiring hermes-agent's native google-gemini-cli provider into the
 #          launcher's model menu. See CHANGELOG.md + docs/GEMINI-LOGIN.md.

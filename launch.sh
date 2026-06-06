@@ -344,6 +344,7 @@ show_menu() {
     echo -e "  ${BRIGHT_YELLOW}[1]${RESET}  ${WHITE}Start Hermes Chat${RESET}"
     echo -e "  ${BRIGHT_YELLOW}[2]${RESET}  ${WHITE}Setup / Reconfigure Hermes${RESET}"
     echo -e "  ${BRIGHT_YELLOW}[M]${RESET}  ${WHITE}Switch Model / Provider${RESET}  ${GRAY}fast${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[D]${RESET}  ${WHITE}Open Dashboard${RESET}  ${GRAY}web UI · config · keys · sessions${RESET}"
     if [ "$GATEWAY_STATUS" = "Running (PID $GATEWAY_PID)" ]; then
         echo -e "  ${BRIGHT_YELLOW}[3]${RESET}  ${WHITE}Stop Gateway${RESET}  ${RED}[live]${RESET}"
     else
@@ -365,6 +366,7 @@ show_menu() {
         5) menu_eject ;;
         6) menu_exit ;;
         m|M) menu_model ;;
+        d|D) menu_dashboard ;;
         e|E) menu_eject ;;
         *) show_menu ;;
     esac
@@ -505,6 +507,27 @@ menu_gateway() {
         fi
     fi
     read -p "Press Enter to continue ..."
+    detect_status
+    show_menu
+}
+
+menu_dashboard() {
+    clear
+    echo -e "${BRIGHT_YELLOW}Hermes Dashboard${RESET}  ${GRAY}(web UI — config, API keys, sessions, chat)${RESET}"
+    echo -e "${GRAY}Opens in your browser at ${WHITE}http://127.0.0.1:9119${RESET}${GRAY}.${RESET}"
+    echo -e "${GRAY}Bound to localhost only (no API keys exposed on the network).${RESET}"
+    echo -e "${GRAY}Press ${WHITE}Ctrl-C${RESET}${GRAY} here to stop the dashboard and return to the menu.${RESET}"
+    echo ""
+    # The frontend is pre-built onto the drive at hermes_cli/web_dist (vite
+    # outDir). Serve it with --skip-build so no Node/npm is needed at runtime.
+    # If the build is missing (fresh drive), fall back to an auto-build.
+    local dist="$SRC_DIR/hermes-agent/hermes_cli/web_dist/index.html"
+    if [ -f "$dist" ]; then
+        hermes dashboard --skip-build --port 9119
+    else
+        echo -e "${DIM}First run — building the dashboard UI once (needs the bundled Node)...${RESET}"
+        hermes dashboard --port 9119
+    fi
     detect_status
     show_menu
 }
