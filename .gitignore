@@ -12,3 +12,7 @@ Brain/
 # Session handoff / scratch notes
 MAC-HANDOFF-PROMPT.md
 *.console.err
+
+# macOS junk (AppleDouble + Finder metadata) — appears on exFAT/FAT drives
+._*
+.DS_Store

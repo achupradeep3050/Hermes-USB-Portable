@@ -350,7 +350,8 @@ show_menu() {
         echo -e "  ${BRIGHT_YELLOW}[3]${RESET}  ${WHITE}Start Gateway${RESET}"
     fi
     echo -e "  ${BRIGHT_YELLOW}[4]${RESET}  ${WHITE}Advanced Options${RESET}  ${GRAY}-->${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[5]${RESET}  ${GRAY}Exit${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[5]${RESET}  ${WHITE}Eject USB Safely${RESET}  ${GRAY}save · organise · eject${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[6]${RESET}  ${GRAY}Exit${RESET}"
     echo ""
     echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
     echo ""
@@ -361,8 +362,10 @@ show_menu() {
         2) menu_setup ;;
         3) menu_gateway ;;
         4) show_advanced ;;
-        5) menu_exit ;;
+        5) menu_eject ;;
+        6) menu_exit ;;
         m|M) menu_model ;;
+        e|E) menu_eject ;;
         *) show_menu ;;
     esac
 }
@@ -474,6 +477,22 @@ menu_gateway() {
     read -p "Press Enter to continue ..."
     detect_status
     show_menu
+}
+
+menu_eject() {
+    clear
+    # Saves sessions, organises & syncs the Brain, then ejects the USB.
+    bash "$PORTABLE_ROOT/scripts/safe-eject.sh"
+    rc=$?
+    if [ "$rc" -eq 10 ]; then
+        # user cancelled at the confirm prompt — back to the menu
+        show_menu
+        return
+    fi
+    echo ""
+    echo -e "${GRAY}Launcher closed so the drive can be removed. Goodbye!${RESET}"
+    echo ""
+    exit 0
 }
 
 menu_exit() {
