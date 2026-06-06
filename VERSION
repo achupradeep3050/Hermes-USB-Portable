@@ -1,12 +1,18 @@
 # Hermes-USB-Portable — version pin
 # Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
 
-portable_version:        portable-v1.3.1
+portable_version:        portable-v1.4.0
 hermes_agent_version:    0.16.0
 hermes_agent_upstream:   NousResearch/hermes-agent
 hermes_agent_commit:     56236b16e383cc656bb8c88429902f4de83f1faf
 synced_on:               2026-06-06
 
+# v1.4.0 — Windows launcher parity: port the "Google Gemini — Login with Google"
+#          (OAuth, google-gemini-cli, no API key) option into launch.bat. It had
+#          shipped in launch.sh at v1.2.0 but Windows was stuck on the API-key-only
+#          Gemini menu (provider "gemini" + GEMINI_API_KEY) — which silently failed
+#          for OAuth users. Model menu now uses set/p so the 2-digit "[10] Back"
+#          works. macOS launch.sh unchanged. See CHANGELOG.md.
 # v1.3.1 — dashboard launcher fix: start the server detached with --no-open and
 #          poll until it actually binds (cold start is ~60-90s on USB) BEFORE
 #          opening the browser, so it no longer lands on a connection-refused

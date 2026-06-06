@@ -13,6 +13,9 @@ Brain/
 MAC-HANDOFF-PROMPT.md
 *.console.err
 
+# Claude Code local workspace config (per-machine, not for the public repo)
+.claude/
+
 # macOS junk (AppleDouble + Finder metadata) — appears on exFAT/FAT drives
 ._*
 .DS_Store

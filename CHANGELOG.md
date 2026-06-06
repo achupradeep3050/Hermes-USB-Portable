@@ -2,6 +2,20 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.4.0] — 2026-06-07
+
+### Fixed
+- **Windows launcher had no OAuth Gemini option — "Login with Google" only worked on macOS.** The `[4] Google Gemini` entry in `launch.bat` ran the **API-key** path (`switch-model.py --provider gemini --set-env GEMINI_API_KEY=…`), even though the `google-gemini-cli` **OAuth** flow shipped in `launch.sh` back at v1.2.0. Result on Windows: users who had logged in with Google (creds at `data/auth/google_oauth.json`) and selected `[M] → Gemini` got `provider: gemini` with an empty `GEMINI_API_KEY` → **"model provider failed."** `launch.bat` is now at parity with `launch.sh`.
+
+### Added (Windows parity with `launch.sh`)
+- **`[4] Google Gemini — login with Google (OAuth, no API key)`** in `launch.bat`: runs `hermes auth add google-gemini-cli` (browser PKCE sign-in; creds → `data/auth/google_oauth.json` on the USB), then points `config.yaml` at `provider: google-gemini-cli` via `switch-model.py` (no API key). Default model `gemini-3-flash-preview` (high RPM, snappy for an always-on agent; switch to `gemini-3-pro-preview` for heavy reasoning).
+- The existing **API-key** Gemini path is preserved at **`[5] Google Gemini — cloud (API key)`**; OpenRouter/Anthropic/Custom/Full-picker/Back renumbered to `[6]…[10]`.
+- The model menu now reads input with `set /p` instead of `choice` so the two-digit **`[10] Back`** is selectable.
+
+### Notes
+- macOS `launch.sh` is unchanged (it already had both Gemini options).
+- Verified on `LEGION` (Windows 11): switched `config.yaml` to `google-gemini-cli` / `gemini-3-flash-preview`; `hermes doctor` shows Gemini OAuth logged in; live one-shots on both `gemini-3-pro-preview` and `gemini-3-flash-preview` returned correct answers (identity + injected memory); gateway reconnects to Telegram on Gemini. `gemini-3-pro-preview` is RPM-throttled on the standard tier (HTTP 429 with short reset windows) under rapid multi-step calls — flash avoids this.
+
 ## [portable-v1.3.1] — 2026-06-06
 
 ### Fixed

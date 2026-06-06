@@ -335,27 +335,31 @@ echo %BRIGHT_CYAN%--------------------------------------------------------------
 echo %BOLD%%BRIGHT_WHITE%                  Switch Model / Provider%RESET%
 echo %BRIGHT_CYAN%----------------------------------------------------------------%RESET%
 echo.
-echo  %BRIGHT_YELLOW%[1]%RESET%  Kimi for Coding   (cloud, current)
+echo  %BRIGHT_YELLOW%[1]%RESET%  Kimi for Coding   (cloud)
 echo  %BRIGHT_YELLOW%[2]%RESET%  Ollama            (local)
 echo  %BRIGHT_YELLOW%[3]%RESET%  LM Studio         (local)
-echo  %BRIGHT_YELLOW%[4]%RESET%  Google Gemini     (cloud)
-echo  %BRIGHT_YELLOW%[5]%RESET%  OpenRouter        (cloud)
-echo  %BRIGHT_YELLOW%[6]%RESET%  Anthropic Claude  (cloud)
-echo  %BRIGHT_YELLOW%[7]%RESET%  Custom endpoint
-echo  %BRIGHT_YELLOW%[8]%RESET%  Full picker (hermes model)
-echo  %BRIGHT_YELLOW%[9]%RESET%  Back
+echo  %BRIGHT_YELLOW%[4]%RESET%  Google Gemini     %BRIGHT_GREEN%login with Google%RESET% (OAuth, no API key)
+echo  %BRIGHT_YELLOW%[5]%RESET%  Google Gemini     (cloud, API key)
+echo  %BRIGHT_YELLOW%[6]%RESET%  OpenRouter        (cloud)
+echo  %BRIGHT_YELLOW%[7]%RESET%  Anthropic Claude  (cloud)
+echo  %BRIGHT_YELLOW%[8]%RESET%  Custom endpoint
+echo  %BRIGHT_YELLOW%[9]%RESET%  Full picker (hermes model)
+echo  %BRIGHT_YELLOW%[10]%RESET% Back
 echo.
-choice /C 123456789 /N
-set "MC=!errorlevel!"
+REM set /p (not choice) so the two-digit "10" can be entered.
+set "MC="
+set /p "MC=Select model: "
 if "!MC!"=="1" goto :mdl_kimi
 if "!MC!"=="2" goto :mdl_ollama
 if "!MC!"=="3" goto :mdl_lmstudio
-if "!MC!"=="4" goto :mdl_gemini
-if "!MC!"=="5" goto :mdl_openrouter
-if "!MC!"=="6" goto :mdl_anthropic
-if "!MC!"=="7" goto :mdl_custom
-if "!MC!"=="8" ( hermes model & goto :model_done )
-goto :detect_status
+if "!MC!"=="4" goto :mdl_gemini_oauth
+if "!MC!"=="5" goto :mdl_gemini
+if "!MC!"=="6" goto :mdl_openrouter
+if "!MC!"=="7" goto :mdl_anthropic
+if "!MC!"=="8" goto :mdl_custom
+if "!MC!"=="9" ( hermes model & goto :model_done )
+if "!MC!"=="10" goto :detect_status
+goto :menu_model
 
 :mdl_kimi
 python "%PORTABLE_ROOT%\scripts\switch-model.py" --config "%HERMES_HOME%\config.yaml" --env "%HERMES_HOME%\.env" --provider kimi-coding --model kimi-for-coding --base-url ""
@@ -375,6 +379,30 @@ set /p "M=LM Studio model name: "
 set "U=http://127.0.0.1:1234/v1"
 set /p "U=LM Studio URL [http://127.0.0.1:1234/v1]: "
 python "%PORTABLE_ROOT%\scripts\switch-model.py" --config "%HERMES_HOME%\config.yaml" --env "%HERMES_HOME%\.env" --provider lmstudio --model "!M!" --base-url "!U!"
+goto :model_done
+
+:mdl_gemini_oauth
+REM Google Gemini via "Login with Google" (OAuth) — provider google-gemini-cli,
+REM no API key. Mirrors launch.sh menu_model_gemini_oauth so Windows + macOS
+REM behave identically. Browser PKCE sign-in; creds -> data/auth/google_oauth.json
+REM (on the USB, so the login travels with the drive).
+echo.
+echo %BRIGHT_YELLOW%Google Gemini - Login with Google (OAuth, no API key)%RESET%
+echo %GRAY%A browser window will open so you can sign in to Google. The login is%RESET%
+echo %GRAY%stored on this USB, so it works on any machine you plug into.%RESET%
+echo %GRAY%(Already logged in? Just press Enter at the prompts to keep it.)%RESET%
+echo.
+hermes auth add google-gemini-cli
+if errorlevel 1 (
+    echo.
+    echo %YELLOW%Google sign-in did not complete - model left unchanged.%RESET%
+    goto :model_done
+)
+echo.
+set "M=gemini-3-flash-preview"
+set /p "M=Gemini model [gemini-3-flash-preview]: "
+python "%PORTABLE_ROOT%\scripts\switch-model.py" --config "%HERMES_HOME%\config.yaml" --env "%HERMES_HOME%\.env" --provider google-gemini-cli --model "!M!" --base-url ""
+echo %BRIGHT_GREEN%Switched to Google Gemini (login) - !M!%RESET%
 goto :model_done
 
 :mdl_gemini
