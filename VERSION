@@ -1,0 +1,15 @@
+# Hermes-USB-Portable — version pin
+# Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
+
+portable_version:        portable-v1.0.0
+hermes_agent_version:    0.16.0
+hermes_agent_upstream:   NousResearch/hermes-agent
+hermes_agent_commit:     56236b16e383cc656bb8c88429902f4de83f1faf
+synced_on:               2026-06-06
+
+# Notes:
+# - The hermes-agent source lives in src/ (gitignored); the launchers download it
+#   from upstream main on first run. This file records the commit it was last
+#   synced/verified against, so the wrapper version is reproducible.
+# - Bump portable_version (semver) when the launchers/scripts change; update
+#   hermes_agent_commit when you sync source. See docs/UPDATING.md.
