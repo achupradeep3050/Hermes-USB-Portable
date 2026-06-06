@@ -511,23 +511,85 @@ menu_gateway() {
     show_menu
 }
 
+# Returns 0 if an HTTP GET on $1 succeeds. Uses curl when present, else the
+# bundled python — so readiness polling works on any host.
+_http_ok() {
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsS -o /dev/null "$1" 2>/dev/null
+    else
+        python - "$1" <<'PY' 2>/dev/null
+import sys, urllib.request
+try:
+    urllib.request.urlopen(sys.argv[1], timeout=2)
+except Exception:
+    sys.exit(1)
+PY
+    fi
+}
+
+# Open a URL in the host's default browser (best-effort, non-blocking).
+_open_url() {
+    if [ "$PLATFORM" = "macos" ]; then
+        open "$1" >/dev/null 2>&1 &
+    elif command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "$1" >/dev/null 2>&1 &
+    else
+        echo -e "${GRAY}Open this in your browser: ${WHITE}$1${RESET}"
+    fi
+}
+
 menu_dashboard() {
     clear
     echo -e "${BRIGHT_YELLOW}Hermes Dashboard${RESET}  ${GRAY}(web UI — config, API keys, sessions, chat)${RESET}"
-    echo -e "${GRAY}Opens in your browser at ${WHITE}http://127.0.0.1:9119${RESET}${GRAY}.${RESET}"
-    echo -e "${GRAY}Bound to localhost only (no API keys exposed on the network).${RESET}"
-    echo -e "${GRAY}Press ${WHITE}Ctrl-C${RESET}${GRAY} here to stop the dashboard and return to the menu.${RESET}"
+    echo -e "${GRAY}Served on localhost only at ${WHITE}http://127.0.0.1:9119${RESET}${GRAY} (no keys exposed on the network).${RESET}"
     echo ""
-    # The frontend is pre-built onto the drive at hermes_cli/web_dist (vite
-    # outDir). Serve it with --skip-build so no Node/npm is needed at runtime.
-    # If the build is missing (fresh drive), fall back to an auto-build.
+    local url="http://127.0.0.1:9119"
     local dist="$SRC_DIR/hermes-agent/hermes_cli/web_dist/index.html"
-    if [ -f "$dist" ]; then
-        hermes dashboard --skip-build --port 9119
-    else
-        echo -e "${DIM}First run — building the dashboard UI once (needs the bundled Node)...${RESET}"
-        hermes dashboard --port 9119
+
+    # Already running? Just (re)open the browser — don't spawn a second server.
+    if _http_ok "$url/api/status"; then
+        echo -e "${BRIGHT_GREEN}Dashboard already running.${RESET}  Opening ${WHITE}$url${RESET}"
+        _open_url "$url"
+        read -p "Press Enter to return to the menu ..."
+        show_menu
+        return
     fi
+
+    # Start the server DETACHED with --no-open. We open the browser ourselves
+    # only AFTER it answers — cold start (plugin discovery off USB) can take
+    # ~60-90s, and opening the browser first lands on a connection-refused page.
+    mkdir -p "$HERMES_HOME/logs"
+    if [ -f "$dist" ]; then
+        nohup hermes dashboard --skip-build --no-open --port 9119 \
+            > "$HERMES_HOME/logs/dashboard.log" 2>&1 < /dev/null &
+    else
+        echo -e "${DIM}First run — building the dashboard UI once (bundled Node) ...${RESET}"
+        nohup hermes dashboard --no-open --port 9119 \
+            > "$HERMES_HOME/logs/dashboard.log" 2>&1 < /dev/null &
+    fi
+    disown 2>/dev/null || true
+
+    echo -ne "${CYAN}Starting dashboard${RESET}${DIM} (first launch can take up to ~90s) "
+    local i=0
+    until _http_ok "$url/api/status" || [ "$i" -ge 120 ]; do
+        echo -n "."
+        sleep 2
+        i=$((i + 2))
+    done
+    echo -e "${RESET}"
+
+    if _http_ok "$url/api/status"; then
+        echo -e "${BRIGHT_GREEN}Dashboard ready${RESET} (${i}s) — opening ${WHITE}$url${RESET}"
+        _open_url "$url"
+        echo ""
+        echo -e "${GRAY}It stays running in the background. Stop it any time with:${RESET}"
+        echo -e "    ${WHITE}hermes dashboard --stop${RESET}"
+    else
+        echo -e "${YELLOW}Dashboard didn't come up within 120s.${RESET}"
+        echo -e "${GRAY}Check ${WHITE}data/logs/dashboard.log${RESET}${GRAY} and ${WHITE}data/logs/gui.log${RESET}${GRAY}.${RESET}"
+    fi
+    echo ""
+    read -p "Press Enter to return to the menu ..."
     detect_status
     show_menu
 }

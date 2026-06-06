@@ -8,8 +8,17 @@ backend + a pre-built Vite/React single-page app).
 
 1. Launch Hermes (`./launch.sh`).
 2. Press **`D`** → **Open Dashboard**.
-3. Your browser opens at **http://127.0.0.1:9119**.
-4. Press **Ctrl-C** in the terminal to stop the dashboard and return to the menu.
+3. The launcher starts the server in the background and **waits until it's
+   actually listening** before opening your browser at
+   **http://127.0.0.1:9119**. The **first launch can take ~60-90s** (plugin
+   discovery loads off the USB); later launches are faster, and if it's already
+   running the browser re-opens instantly.
+4. The server keeps running in the background. Stop it any time with
+   **`hermes dashboard --stop`**.
+
+> The wait-for-ready step matters: earlier versions opened the browser
+> immediately, so it landed on a "connection refused" page during the slow cold
+> start and looked broken. The browser now only opens once the server responds.
 
 Equivalent CLI: `hermes dashboard --skip-build` (start), `hermes dashboard --stop`
 (stop), `hermes dashboard --status` (list running).

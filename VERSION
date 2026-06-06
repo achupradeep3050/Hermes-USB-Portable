@@ -1,12 +1,16 @@
 # Hermes-USB-Portable — version pin
 # Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
 
-portable_version:        portable-v1.3.0
+portable_version:        portable-v1.3.1
 hermes_agent_version:    0.16.0
 hermes_agent_upstream:   NousResearch/hermes-agent
 hermes_agent_commit:     56236b16e383cc656bb8c88429902f4de83f1faf
 synced_on:               2026-06-06
 
+# v1.3.1 — dashboard launcher fix: start the server detached with --no-open and
+#          poll until it actually binds (cold start is ~60-90s on USB) BEFORE
+#          opening the browser, so it no longer lands on a connection-refused
+#          page. Adds an "already running" fast-path. See CHANGELOG.md.
 # v1.3.0 — added "[D] Open Dashboard" launcher option: serves hermes-agent's web
 #          UI (FastAPI + prebuilt Vite SPA) at http://127.0.0.1:9119 via
 #          `hermes dashboard --skip-build`. Frontend pre-built onto the drive

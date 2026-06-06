@@ -2,6 +2,16 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.3.1] — 2026-06-06
+
+### Fixed
+- **Dashboard opened a blank / "connection refused" page.** Root cause: the launcher ran `hermes dashboard` which auto-opened the browser *immediately*, but the server's cold start (plugin discovery off the USB) takes **~60-90s to bind** — so the browser loaded before the server existed and looked broken. The backend was always fine (verified: SPA + assets 200, token injected, `/api/config`·`/api/model/info`·`/api/sessions`·`/api/system/stats` all 200 + JSON).
+- `menu_dashboard()` now starts the server **detached with `--no-open`**, polls `http://127.0.0.1:9119/api/status` until it actually responds (up to 120s, with progress dots), and **only then opens the browser**. Added an **"already running" fast-path** (re-opens the tab instead of spawning a second server) and clear stop guidance (`hermes dashboard --stop`).
+- New helpers `_http_ok` (curl → bundled-python fallback) and `_open_url` (macOS `open` / Linux `xdg-open`) so readiness-polling and browser-open work on any host.
+
+### Notes
+- First launch is slow (~60-90s) because plugin discovery loads off the USB; subsequent launches are faster (OS cache) and the fast-path is instant. Verified end-to-end: ready after 62-74s, browser opens only when live, `/api/config → 200`.
+
 ## [portable-v1.3.0] — 2026-06-06
 
 ### Added
