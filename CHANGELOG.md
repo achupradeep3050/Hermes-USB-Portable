@@ -2,6 +2,21 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.2.0] — 2026-06-06
+
+### Added
+- **Google Gemini — Login with Google** — new model-menu entry **`[4] Google Gemini · login with Google (no API key)`**. Picks Gemini using a Google account instead of an API key, by wiring hermes-agent's native **`google-gemini-cli`** provider into the portable launcher:
+  1. Runs `hermes auth add google-gemini-cli` — a browser **OAuth (PKCE)** sign-in to Google.
+  2. Talks to Google's **Cloud Code Assist** backend (`cloudcode-pa.googleapis.com`) — the same backend behind Google's own gemini-cli free/subscription tiers. No API key, no `gemini-cli` install required (the public OAuth client ships with hermes-agent).
+  3. Prompts for the model (default `gemini-3-pro-preview`; also `gemini-3.1-pro-preview`, `gemini-3-flash-preview`, `gemini-3.5-flash`) and points `data/config.yaml` at the provider.
+- **Portable by design** — the OAuth credential is stored at `data/auth/google_oauth.json` (chmod 0600, on the USB and gitignored), so the login travels with the drive across machines.
+- The existing **API-key** Gemini path is preserved, now at **`[5] Google Gemini · cloud (API key)`**; subsequent menu items renumbered (`[10] Back`).
+- `docs/GEMINI-LOGIN.md` — setup, model notes, credential location, and the Google ToS caveat.
+
+### Notes
+- **Google policy:** using the gemini-cli OAuth client with third-party software is a ToS gray-area; hermes-agent shows an upfront warning before sign-in. Use with your own account at your discretion.
+- Verified: `bash -n` syntax-clean; live Google sign-in completed end-to-end (`auth status google-gemini-cli: logged in`, credential saved on USB); model applied to `config.yaml`.
+
 ## [portable-v1.1.0] — 2026-06-06
 
 ### Added

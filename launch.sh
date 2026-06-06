@@ -395,6 +395,34 @@ _apply_model() {   # provider  model  base_url(""=none)  [ENVKEY=VALUE]
     fi
 }
 
+# Google Gemini via "Login with Google" (OAuth) — no API key.
+# Drives hermes-agent's native `google-gemini-cli` provider, which runs a
+# browser PKCE sign-in and talks to Google's Cloud Code Assist backend.
+# Credentials are written to $HERMES_HOME/auth/google_oauth.json — i.e. they
+# live on the USB (data/ is gitignored), so the login travels with the drive.
+# Heads-up: Google's policy treats third-party use of the gemini-cli OAuth
+# client as a ToS gray-area; Hermes shows its own warning before sign-in.
+menu_model_gemini_oauth() {
+    echo ""
+    echo -e "${BRIGHT_YELLOW}Google Gemini — Login with Google (OAuth, no API key)${RESET}"
+    echo -e "${GRAY}A browser window will open so you can sign in to Google. The login is${RESET}"
+    echo -e "${GRAY}stored on this USB, so it works on any machine you plug into.${RESET}"
+    echo ""
+    # Native OAuth login. Creds -> $HERMES_HOME/auth/google_oauth.json.
+    hermes auth add google-gemini-cli
+    local rc=$?
+    if [ "$rc" -ne 0 ]; then
+        echo ""
+        echo -e "${YELLOW}Google sign-in did not complete (exit $rc) — model left unchanged.${RESET}"
+        return 1
+    fi
+    echo ""
+    local m
+    read -p "Gemini model [gemini-3-pro-preview]: " m; m=${m:-gemini-3-pro-preview}
+    _apply_model "google-gemini-cli" "$m" ""
+    echo -e "${BRIGHT_GREEN}Switched to Google Gemini (login) — $m${RESET}"
+}
+
 menu_model() {
     clear
     echo ""
@@ -405,12 +433,13 @@ menu_model() {
     echo -e "  ${BRIGHT_YELLOW}[1]${RESET}  ${WHITE}Kimi for Coding${RESET}      ${GRAY}cloud (current default)${RESET}"
     echo -e "  ${BRIGHT_YELLOW}[2]${RESET}  ${WHITE}Ollama${RESET}               ${GRAY}local LLM server${RESET}"
     echo -e "  ${BRIGHT_YELLOW}[3]${RESET}  ${WHITE}LM Studio${RESET}            ${GRAY}local LLM server${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[4]${RESET}  ${WHITE}Google Gemini${RESET}        ${GRAY}cloud (API key)${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[5]${RESET}  ${WHITE}OpenRouter${RESET}           ${GRAY}cloud, 300+ models${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[6]${RESET}  ${WHITE}Anthropic Claude${RESET}     ${GRAY}cloud (API key)${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[7]${RESET}  ${WHITE}Custom endpoint${RESET}      ${GRAY}any OpenAI-compatible URL${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[8]${RESET}  ${WHITE}Full interactive picker${RESET}  ${GRAY}(hermes model)${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[9]${RESET}  ${GRAY}Back${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[4]${RESET}  ${WHITE}Google Gemini${RESET}        ${GREEN}login with Google${RESET} ${GRAY}(no API key)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[5]${RESET}  ${WHITE}Google Gemini${RESET}        ${GRAY}cloud (API key)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[6]${RESET}  ${WHITE}OpenRouter${RESET}           ${GRAY}cloud, 300+ models${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[7]${RESET}  ${WHITE}Anthropic Claude${RESET}     ${GRAY}cloud (API key)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[8]${RESET}  ${WHITE}Custom endpoint${RESET}      ${GRAY}any OpenAI-compatible URL${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[9]${RESET}  ${WHITE}Full interactive picker${RESET}  ${GRAY}(hermes model)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[10]${RESET} ${GRAY}Back${RESET}"
     echo ""
     read -p "$(echo -e "${BRIGHT_CYAN}Select model: ${RESET}")" mc
     case "$mc" in
@@ -421,21 +450,22 @@ menu_model() {
         3) read -p "LM Studio model (name shown in LM Studio): " m
            read -p "LM Studio URL [http://127.0.0.1:1234/v1]: " u; u=${u:-http://127.0.0.1:1234/v1}
            _apply_model "lmstudio" "$m" "$u" ;;
-        4) read -p "Gemini model [gemini-2.5-flash]: " m; m=${m:-gemini-2.5-flash}
+        4) menu_model_gemini_oauth ;;
+        5) read -p "Gemini model [gemini-2.5-flash]: " m; m=${m:-gemini-2.5-flash}
            read -p "GEMINI_API_KEY: " k
            _apply_model "gemini" "$m" "" "GEMINI_API_KEY=$k" ;;
-        5) read -p "OpenRouter model [anthropic/claude-sonnet-4]: " m; m=${m:-anthropic/claude-sonnet-4}
+        6) read -p "OpenRouter model [anthropic/claude-sonnet-4]: " m; m=${m:-anthropic/claude-sonnet-4}
            read -p "OPENROUTER_API_KEY: " k
            _apply_model "openrouter" "$m" "" "OPENROUTER_API_KEY=$k" ;;
-        6) read -p "Claude model [claude-sonnet-4-6]: " m; m=${m:-claude-sonnet-4-6}
+        7) read -p "Claude model [claude-sonnet-4-6]: " m; m=${m:-claude-sonnet-4-6}
            read -p "ANTHROPIC_API_KEY: " k
            _apply_model "anthropic" "$m" "" "ANTHROPIC_API_KEY=$k" ;;
-        7) read -p "Base URL (OpenAI-compatible): " u
+        8) read -p "Base URL (OpenAI-compatible): " u
            read -p "Model name: " m
            read -p "API key (blank if none): " k
            if [ -n "$k" ]; then _apply_model "custom" "$m" "$u" "OPENAI_API_KEY=$k"; else _apply_model "custom" "$m" "$u"; fi ;;
-        8) hermes model ;;
-        9) detect_status; show_menu; return ;;
+        9) hermes model ;;
+        10) detect_status; show_menu; return ;;
         *) menu_model; return ;;
     esac
     echo ""
