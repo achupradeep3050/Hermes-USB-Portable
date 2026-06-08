@@ -19,3 +19,7 @@ MAC-HANDOFF-PROMPT.md
 # macOS junk (AppleDouble + Finder metadata) — appears on exFAT/FAT drives
 ._*
 .DS_Store
+
+# Portable Chrome profile + downloads (contain credentials, cookies, cached data)
+chrome-profile/
+chrome-downloads/
