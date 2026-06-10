@@ -2,6 +2,21 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.5.0] — 2026-06-10
+
+### Changed
+- **README overhaul** — front-page completely rewritten to document every portable-specific feature shipped since v1.0.0. New sections added:
+  - **Obsidian Brain Setup** — how to open `Brain/` as an Obsidian vault on any machine, vault structure, and the `.hermes-safe-eject.json` marker.
+  - **Portable Chrome Launcher** — import profile from host, launch with `chrome-launcher/chrome.bat`, carry logins/bookmarks across PCs.
+  - **Dashboard** — `[D] Open Dashboard` shortcut, cold-start wait logic, pre-built SPA, and security notes.
+  - **Safe Eject** — `[5] Eject USB Safely` workflow, `--dry-run` / `--yes` flags, and eject-blocked troubleshooting.
+  - **Model Switcher & OAuth Gemini** — `[M]` menu and `[4] Google Gemini — login with Google` with credential location.
+  - **Versioning & Releases** — how `VERSION` pairs the wrapper with the upstream hermes-agent commit, plus tag history.
+  - Updated mermaid diagram to include Brain, Dashboard, and Chrome Launcher nodes.
+  - Updated directory structure YAML to include `Brain/`, `chrome-launcher/`, `docs/`, `chrome-profile/`, `chrome-downloads/`, `data/auth/`, and `scripts/safe-eject.sh`.
+  - New troubleshooting entries for dashboard blank page, Chrome profile import, and USB eject blocked.
+- No launcher or script code changes in this release — purely documentation and repo hygiene.
+
 ## [portable-v1.4.1] — 2026-06-07
 
 ### Fixed

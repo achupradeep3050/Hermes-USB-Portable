@@ -1,12 +1,17 @@
 # Hermes-USB-Portable — version pin
 # Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
 
-portable_version:        portable-v1.4.1
+portable_version:        portable-v1.5.0
 hermes_agent_version:    0.16.0
 hermes_agent_upstream:   NousResearch/hermes-agent
 hermes_agent_commit:     56236b16e383cc656bb8c88429902f4de83f1faf
-synced_on:               2026-06-06
+synced_on:               2026-06-10
 
+# v1.5.0 — README overhaul: rewritten front-page to document every portable-specific
+#          feature shipped since v1.0.0 (Obsidian Brain, Chrome Launcher, Dashboard,
+#          Safe Eject, OAuth Gemini, Model Switcher, Versioning). Also adds the
+#          Obsidian Brain Setup section describing how to open Brain/ as a vault.
+#          No launcher code changes — purely documentation + repo hygiene.
 # v1.4.1 — launch.bat one-shot fix: `launch.bat -z "a, b (c)"` (any quoted
 #          passthrough args) died with "is was unexpected at this time" because
 #          `if not "%ARGS%"=="" ( hermes %ARGS% )` expanded the quoted args at
