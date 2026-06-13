@@ -59,6 +59,8 @@ chmod +x launch.sh
 
 > 💡 **macOS Double-Click Shortcut:** If you want to double-click in Finder to launch, rename `launch.sh` to `launch.command`. macOS recognizes `.command` files and opens them in Terminal automatically.
 
+> 🐧 **Linux + exFAT drives (auto-handled):** exFAT — the format that lets one drive work on Windows, macOS **and** Linux — can't store symlinks on Linux, which used to break first-run setup (`tar: Cannot create symlink … Operation not permitted`). Since **portable-v1.6.0** the setup detects this automatically: it unpacks the runtime on local disk and copies it back as plain files, and keeps the Python virtual-env on local disk (rebuilt on demand). No action needed — just run `./launch.sh`. (Browser/Playwright web-automation tools remain limited on exFAT-Linux; everything else works.)
+
 ---
 
 ## 🧠 Obsidian Brain Setup
@@ -380,6 +382,15 @@ Tagged releases range from **`portable-v1.0.0`** through **`portable-v1.4.1`**. 
 *   Verify your internet connection (the setup downloads ~600 MB of data).
 *   Some corporate/school firewall settings block Node.js CDNs or GitHub releases. Try configuring a VPN.
 *   Delete the `.cache/` folder and launch again to clean-install the runtimes.
+</details>
+
+<details>
+<summary><strong>Linux: setup aborts with "tar: Cannot create symlink … Operation not permitted"</strong></summary>
+
+*   This is the exFAT-on-Linux symlink limitation, **fixed automatically in portable-v1.6.0+** — pull/update the launcher and re-run `./launch.sh`. Setup now stages the runtime on local disk and copies it back as plain files (symlinks dereferenced), and builds the Python venv on local disk.
+*   If you previously hit this on an older version, the half-built runtime is harmless to discard: `rm -rf .cache/runtimes/linux-x64` then `./launch.sh`.
+*   The venv lives at `/tmp/hermes-portable-venv-<id>` and is rebuilt automatically if a reboot clears `/tmp` (the launcher detects it on start). The pointer is saved in `.cache/runtimes/linux-x64/venv.path`.
+*   Browser/Playwright web-automation tools stay limited on exFAT-Linux (their browser binaries also need symlinks); pick a different filesystem (ext4) if you need them.
 </details>
 
 <details>

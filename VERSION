@@ -1,12 +1,24 @@
 # Hermes-USB-Portable — version pin
 # Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
 
-portable_version:        portable-v1.5.0
+portable_version:        portable-v1.6.0
 hermes_agent_version:    0.16.0
 hermes_agent_upstream:   NousResearch/hermes-agent
 hermes_agent_commit:     56236b16e383cc656bb8c88429902f4de83f1faf
-synced_on:               2026-06-10
+synced_on:               2026-06-13
 
+# v1.6.0 — Linux first-run fix: `launch.sh` aborted on Linux because the drive is
+#          exFAT, which on Linux cannot store symlinks — so `tar -x` of portable
+#          Python/Node (both symlink-heavy) died with "Cannot create symlink:
+#          Operation not permitted", setup never wrote ready.flag, and every launch
+#          re-ran the broken setup. scripts/setup-unix.sh now detects no-symlink
+#          drives, extracts on local disk and copies back with symlinks
+#          DEREFERENCED into real files (exFAT-safe), and builds the venv on local
+#          disk (writing venv.path, matching launch.sh's existing rebuild path).
+#          ripgrep/uv/source extraction hardened the same way. Verified on Ubuntu
+#          26.04 (AST-WKS-571): setup completes, `hermes --version`/`doctor`/menu
+#          all run, 38 plugins discovered. macOS/Windows launchers unchanged. See
+#          CHANGELOG.md.
 # v1.5.0 — README overhaul: rewritten front-page to document every portable-specific
 #          feature shipped since v1.0.0 (Obsidian Brain, Chrome Launcher, Dashboard,
 #          Safe Eject, OAuth Gemini, Model Switcher, Versioning). Also adds the

@@ -2,6 +2,27 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.6.0] — 2026-06-13
+
+### Fixed
+- **`launch.sh` failed on the very first run on Linux — Hermes never started.** First-run setup aborted while unpacking the portable runtime with a flood of:
+  ```
+  tar: bin/python: Cannot create symlink to 'python3.11': Operation not permitted
+  tar: lib/libpython3.11.so: Cannot create symlink to 'libpython3.11.so.1.0': Operation not permitted
+  ...
+  ```
+  **Root cause:** the master USB is formatted **exFAT** (the only filesystem Windows + macOS + Linux can all read/write), and on **Linux the exFAT driver cannot store POSIX symlinks** — `ln -s` returns `EPERM`, and so does `tar -x` on any archive that contains symlinks. The portable Python (python-build-standalone) and Node tarballs are both symlink-heavy (`bin/python → python3.11`, `lib/libpython3.11.so → …so.1.0`, npm/npx/corepack, hundreds of terminfo entries). So `extract_tgz`/`extract_txz` died mid-unpack, `setup-unix.sh` exited non-zero, **`ready.flag` was never written**, and every subsequent `./launch.sh` re-entered the same broken setup. (macOS's exFAT implementation *does* support symlinks, which is why the existing macOS runtime — all real files — worked and Linux never had.)
+- **Fix — materialise symlinks as real files on no-symlink drives.** `scripts/setup-unix.sh` now:
+  - **Detects** whether the runtime drive can hold symlinks (a one-shot `ln -s` probe). On exFAT/NTFS it prints a clear `[WARN]` and switches strategy.
+  - **Extracts on the host's local disk** (`/tmp`, where symlinks work) and copies the result onto the drive with **`cp -RL`** (dereference) so every symlink becomes a **real file** exFAT can store. Native filesystems (macOS/HFS, ext4) keep the original fast direct-extract path. This is applied to **Python, Node, uv, ripgrep, and the Hermes source tarball**.
+  - **Builds the venv on local disk** for no-symlink drives (a venv is built out of symlinks to the base interpreter) and records the location in **`venv.path`** — the exact pointer `launch.sh` already reads and rebuilds from after a reboot purges `/tmp`. On native filesystems the venv stays on the drive.
+  - Hardened incidental bugs surfaced along the way: ripgrep extraction no longer aborts the whole script under `set -e` on a man-page symlink; `uv`/`uvx` are dereferenced too; a `warn` call that ran before the function was defined was removed.
+
+### Notes
+- **macOS `launch.sh` / `setup-unix.sh` behaviour is unchanged** — the new branches only trigger when the drive can't store symlinks. Windows (`launch.bat`) is untouched.
+- **Playwright browser binaries** still can't install onto exFAT-Linux (they unpack with symlinks); this is non-fatal and already wrapped in a warning — browser/web-automation tools are limited there, everything else works.
+- **Verified on `AST-WKS-571` (Ubuntu 26.04 LTS, x86_64, exFAT USB):** clean `bash -n`; full first-run setup completes (Python/Node/uv/ripgrep/source all extract, venv built at `/tmp/hermes-portable-venv-<id>`, deps installed, `ready.flag` written); `bash launch.sh --version` → `Hermes Agent v0.16.0`, Python 3.11.15; `bash launch.sh doctor` runs (exit 0); the interactive menu renders and exits cleanly; device memory recorded to `Brain/devices/ast-wks-571-linux-x64.md`; plugin discovery reports **38 found, 32 enabled**. The agent loop reaches the model provider and fails only at the billing layer (`kimi-for-coding` → **HTTP 403 quota exhausted**, fallbacks out of credit) — an account/quota matter identical across OSes, not a launcher bug. Refill the Kimi quota or point `[M] → Model` at a funded provider for live chat.
+
 ## [portable-v1.5.0] — 2026-06-10
 
 ### Changed

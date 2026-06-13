@@ -51,8 +51,8 @@ mkdir -p "$RUNTIME_DIR" "$SRC_DIR" "$BIN_DIR" "$TMP_DIR"
 # Health check: if ready.flag exists but core files are missing, start fresh
 # ---------------------------------------------------------------------------
 if [ -f "$RUNTIME_DIR/ready.flag" ]; then
-    if [ ! -x "$RUNTIME_DIR/python/bin/python3" ] || [ ! -x "$RUNTIME_DIR/uv/uv" ] || [ ! -x "$RUNTIME_DIR/venv/bin/hermes" ]; then
-        warn "ready.flag exists but core files are missing — restarting setup ..."
+    if [ ! -x "$RUNTIME_DIR/python/bin/python3" ] || [ ! -x "$RUNTIME_DIR/uv/uv" ]; then
+        echo "[WARN]  ready.flag exists but core files are missing — restarting setup ..."
         rm -f "$RUNTIME_DIR/ready.flag"
     fi
 fi
@@ -150,39 +150,77 @@ download() {
     echo "        Download complete ($(( dsize / 1024 / 1024 )) MB)."
 }
 
-extract_tgz() {
-    local archive="$1"
-    local dest="$2"
-    echo "        Extracting $(basename "$archive") ..."
-    # Clean up partial extraction from previous failed run
-    if [ -d "$dest" ]; then
-        rm -rf "$dest"
+# ---------------------------------------------------------------------------
+# Filesystem capability — exFAT/NTFS (the usual cross-platform USB formats)
+# cannot store POSIX symlinks on Linux: `ln -s` fails with EPERM, and so does
+# `tar -x` on any archive that contains symlinks (portable Python/Node both do).
+# That is the root cause of first-run setup failing on Linux. We detect it once
+# and, when symlinks are unsupported, extract on the host's local disk (where
+# symlinks work) and copy the result back with symlinks DEREFERENCED into real
+# files — which exFAT can store. macOS/native filesystems keep the fast path.
+# ---------------------------------------------------------------------------
+if [ "$PLATFORM" = "macos" ]; then
+    LOCAL_BASE="${TMPDIR:-/tmp}"
+else
+    LOCAL_BASE="/tmp"
+fi
+# Keep this formula byte-identical to launch.sh's venv-rebuild path so the venv
+# directory name matches across setup and any later rebuild (note: `echo` adds a
+# trailing newline that is part of the hashed input — intentional, do not change).
+DRIVE_ID="$(echo "$RUNTIME_DIR" | md5sum 2>/dev/null | cut -c1-8 || echo "hermes")"
+STAGE_BASE="$LOCAL_BASE/hermes-portable-stage-$DRIVE_ID"
+
+supports_symlinks() {
+    local probe="$1/.hermes-symtest.$$"
+    if ln -s ok "$probe" 2>/dev/null; then
+        rm -f "$probe" 2>/dev/null || true
+        return 0
     fi
-    mkdir -p "$dest"
-    if ! tar -xzf "$archive" -C "$dest" --strip-components=1; then
-        rm -rf "$dest"
-        rm -f "$archive"
-        echo "        ERROR: tar extraction failed for $(basename "$archive") (corrupted archive deleted)"
-        return 1
-    fi
+    return 1
 }
 
-extract_txz() {
-    local archive="$1"
-    local dest="$2"
+if supports_symlinks "$RUNTIME_DIR"; then
+    DRIVE_SYMLINKS=1
+else
+    DRIVE_SYMLINKS=0
+    warn "Drive filesystem can't store symlinks (exFAT/NTFS)."
+    warn "Runtime files will be materialised as real files; venv goes on local disk."
+fi
+
+# Extract $1 into $2. $3 = tar compression flag ("z" for .tar.gz, "" lets GNU
+# tar auto-detect, e.g. .tar.xz). On no-symlink drives, stage on local disk and
+# deref-copy onto the drive so symlinked entries become real files.
+_extract_archive() {
+    local archive="$1" dest="$2" zflag="$3"
     echo "        Extracting $(basename "$archive") ..."
-    # Clean up partial extraction from previous failed run
-    if [ -d "$dest" ]; then
-        rm -rf "$dest"
+    rm -rf "$dest"
+
+    if [ "${DRIVE_SYMLINKS:-1}" -eq 1 ]; then
+        mkdir -p "$dest"
+        if ! tar -x${zflag}f "$archive" -C "$dest" --strip-components=1; then
+            rm -rf "$dest"; rm -f "$archive"
+            echo "        ERROR: tar extraction failed for $(basename "$archive") (corrupted archive deleted)"
+            return 1
+        fi
+        return 0
     fi
-    mkdir -p "$dest"
-    if ! tar -xf "$archive" -C "$dest" --strip-components=1; then
-        rm -rf "$dest"
-        rm -f "$archive"
+
+    # No-symlink drive: extract on local disk, then deref-copy onto the drive.
+    local stage="$STAGE_BASE/$(basename "$dest")"
+    rm -rf "$stage"; mkdir -p "$stage"
+    if ! tar -x${zflag}f "$archive" -C "$stage" --strip-components=1; then
+        rm -rf "$stage" "$dest"; rm -f "$archive"
         echo "        ERROR: tar extraction failed for $(basename "$archive") (corrupted archive deleted)"
         return 1
     fi
+    mkdir -p "$dest"
+    # -R recursive, -L dereference symlinks -> real files (exFAT-safe).
+    cp -RL "$stage/." "$dest/" 2>/dev/null || cp -RLf "$stage/." "$dest/" 2>/dev/null || true
+    rm -rf "$stage"
 }
+
+extract_tgz() { _extract_archive "$1" "$2" "z"; }
+extract_txz() { _extract_archive "$1" "$2" ""; }
 
 # ---------------------------------------------------------------------------
 # 1. Portable Python
@@ -238,10 +276,10 @@ if ! download "$UV_URL" "$UV_ARCHIVE"; then
     echo "[ERROR] Failed to download uv. Aborting."
     exit 1
 fi
-rm -rf "$RUNTIME_DIR/uv"
-mkdir -p "$RUNTIME_DIR/uv"
-if tar -xzf "$UV_ARCHIVE" -C "$RUNTIME_DIR/uv" --strip-components=1; then
-    chmod +x "$RUNTIME_DIR/uv/uv" 2>/dev/null || true
+# uv ships `uv` + `uvx` (uvx is a hardlink/symlink to uv) — extract_tgz
+# dereferences them into real files so the exFAT drive can hold them.
+if extract_tgz "$UV_ARCHIVE" "$RUNTIME_DIR/uv"; then
+    chmod +x "$RUNTIME_DIR/uv/uv" "$RUNTIME_DIR/uv/uvx" 2>/dev/null || true
     done_msg "uv ready"
 else
     rm -rf "$RUNTIME_DIR/uv"
@@ -255,20 +293,24 @@ fi
 step "Installing ripgrep ..."
 RG_ARCHIVE="$RUNTIME_DIR/rg.tar.gz"
 if download "$RG_URL" "$RG_ARCHIVE"; then
-    mkdir -p "$TMP_DIR/rg"
-    tar -xzf "$RG_ARCHIVE" -C "$TMP_DIR/rg" --strip-components=1
-    if [ -f "$TMP_DIR/rg/rg" ]; then
-        cp "$TMP_DIR/rg/rg" "$BIN_DIR/rg"
-        chmod +x "$BIN_DIR/rg"
-        done_msg "ripgrep ready"
-    elif [ -f "$TMP_DIR/rg/ripgrep-14.1.1-*/rg" ]; then
-        cp "$TMP_DIR/rg/ripgrep-"*/rg "$BIN_DIR/rg"
-        chmod +x "$BIN_DIR/rg"
-        done_msg "ripgrep ready"
+    # Stage on local disk: the rg tarball has a man-page symlink that would
+    # abort `tar` (under set -e) on exFAT. We only need the rg binary anyway.
+    RG_STAGE="$STAGE_BASE/rg"
+    rm -rf "$RG_STAGE"; mkdir -p "$RG_STAGE"
+    if tar -xzf "$RG_ARCHIVE" -C "$RG_STAGE" --strip-components=1 2>/dev/null \
+       || tar -xzf "$RG_ARCHIVE" -C "$RG_STAGE" 2>/dev/null; then
+        RG_BIN="$(find "$RG_STAGE" -name rg -type f 2>/dev/null | head -1)"
+        if [ -n "$RG_BIN" ] && [ -f "$RG_BIN" ]; then
+            cp "$RG_BIN" "$BIN_DIR/rg"
+            chmod +x "$BIN_DIR/rg"
+            done_msg "ripgrep ready"
+        else
+            warn "ripgrep binary not found in archive"
+        fi
     else
-        warn "ripgrep binary not found in archive"
+        warn "ripgrep extraction failed — Hermes will use grep fallback"
     fi
-    rm -rf "$TMP_DIR/rg"
+    rm -rf "$RG_STAGE"
 else
     warn "ripgrep not available for ${PLATFORM}-${ARCH} — Hermes will use grep fallback"
 fi
@@ -282,11 +324,12 @@ if ! download "$SOURCE_URL" "$SRC_ARCHIVE"; then
     echo "[ERROR] Failed to download Hermes source. Aborting."
     exit 1
 fi
-rm -rf "$TMP_DIR/source"
-mkdir -p "$TMP_DIR/source"
-tar -xzf "$SRC_ARCHIVE" -C "$TMP_DIR/source" --strip-components=1
-rm -rf "$SRC_DIR/hermes-agent"
-mv "$TMP_DIR/source" "$SRC_DIR/hermes-agent"
+# extract_tgz handles the exFAT no-symlink case (stage locally, deref-copy);
+# on native filesystems it extracts straight to the destination.
+if ! extract_tgz "$SRC_ARCHIVE" "$SRC_DIR/hermes-agent"; then
+    echo "[ERROR] Failed to extract Hermes source. Aborting."
+    exit 1
+fi
 done_msg "Source code ready"
 
 # ---------------------------------------------------------------------------
@@ -312,7 +355,6 @@ chmod -R +x "$BIN_DIR" 2>/dev/null || true
 # ---------------------------------------------------------------------------
 step "Creating Python virtual environment ..."
 PYTHON_EXE="$RUNTIME_DIR/python/bin/python3"
-VENV_DIR="$RUNTIME_DIR/venv"
 UV_EXE="$RUNTIME_DIR/uv/uv"
 
 if [ ! -x "$PYTHON_EXE" ]; then
@@ -320,10 +362,29 @@ if [ ! -x "$PYTHON_EXE" ]; then
     exit 1
 fi
 
-# Bug fix: bare $? check doesn't work under set -e; use if ! pattern instead
-if ! "$UV_EXE" venv "$VENV_DIR" --python "$PYTHON_EXE"; then
-    echo "[ERROR] Failed to create virtual environment"
-    exit 1
+# A venv is built out of symlinks to the base interpreter, so on a no-symlink
+# drive (exFAT/NTFS) it MUST live on the host's local disk. We record the chosen
+# location in venv.path; launch.sh reads that pointer (and rebuilds the venv on
+# local disk if a reboot purged it). On native filesystems the venv stays on
+# the drive for full portability.
+if [ "${DRIVE_SYMLINKS:-1}" -eq 1 ]; then
+    VENV_DIR="$RUNTIME_DIR/venv"
+else
+    VENV_DIR="$LOCAL_BASE/hermes-portable-venv-$DRIVE_ID"
+    export UV_CACHE_DIR="$LOCAL_BASE/hermes-uv-cache-$DRIVE_ID"
+    mkdir -p "$UV_CACHE_DIR"
+    echo "        exFAT drive — building venv on local disk: $VENV_DIR"
+fi
+echo "$VENV_DIR" > "$RUNTIME_DIR/venv.path"
+rm -rf "$VENV_DIR"
+
+# --seed gives us pip/setuptools inside the venv; fall back without it if the
+# seed step is unavailable. (Bare $? checks don't work under set -e.)
+if ! "$UV_EXE" venv "$VENV_DIR" --python "$PYTHON_EXE" --seed 2>/dev/null; then
+    if ! "$UV_EXE" venv "$VENV_DIR" --python "$PYTHON_EXE"; then
+        echo "[ERROR] Failed to create virtual environment"
+        exit 1
+    fi
 fi
 done_msg "Virtual environment ready"
 
@@ -383,7 +444,7 @@ fi
 # 11. Mark ready
 # ---------------------------------------------------------------------------
 touch "$RUNTIME_DIR/ready.flag"
-rm -rf "$TMP_DIR"
+rm -rf "$TMP_DIR" "$STAGE_BASE" 2>/dev/null || true
 
 echo ""
 echo "========================================"
