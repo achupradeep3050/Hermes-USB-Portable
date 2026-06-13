@@ -340,31 +340,52 @@ echo %BRIGHT_CYAN%--------------------------------------------------------------
 echo %BOLD%%BRIGHT_WHITE%                  Switch Model / Provider%RESET%
 echo %BRIGHT_CYAN%----------------------------------------------------------------%RESET%
 echo.
-echo  %BRIGHT_YELLOW%[1]%RESET%  Kimi for Coding   (cloud)
-echo  %BRIGHT_YELLOW%[2]%RESET%  Ollama            (local)
-echo  %BRIGHT_YELLOW%[3]%RESET%  LM Studio         (local)
-echo  %BRIGHT_YELLOW%[4]%RESET%  Google Gemini     %BRIGHT_GREEN%login with Google%RESET% (OAuth, no API key)
-echo  %BRIGHT_YELLOW%[5]%RESET%  Google Gemini     (cloud, API key)
-echo  %BRIGHT_YELLOW%[6]%RESET%  OpenRouter        (cloud)
-echo  %BRIGHT_YELLOW%[7]%RESET%  Anthropic Claude  (cloud)
-echo  %BRIGHT_YELLOW%[8]%RESET%  Custom endpoint
-echo  %BRIGHT_YELLOW%[9]%RESET%  Full picker (hermes model)
-echo  %BRIGHT_YELLOW%[10]%RESET% Back
+echo  %BRIGHT_YELLOW%[1]%RESET%  NVIDIA - DeepSeek V4  %BRIGHT_GREEN%free credits%RESET% (cloud, NIM)
+echo  %BRIGHT_YELLOW%[2]%RESET%  Kimi for Coding   (cloud, API key)
+echo  %BRIGHT_YELLOW%[3]%RESET%  Ollama            (local)
+echo  %BRIGHT_YELLOW%[4]%RESET%  LM Studio         (local)
+echo  %BRIGHT_YELLOW%[5]%RESET%  Google Gemini     %BRIGHT_GREEN%login with Google%RESET% (OAuth, no API key)
+echo  %BRIGHT_YELLOW%[6]%RESET%  Google Gemini     (cloud, API key)
+echo  %BRIGHT_YELLOW%[7]%RESET%  OpenRouter        (cloud)
+echo  %BRIGHT_YELLOW%[8]%RESET%  Anthropic Claude  (cloud)
+echo  %BRIGHT_YELLOW%[9]%RESET%  Custom endpoint
+echo  %BRIGHT_YELLOW%[10]%RESET% Full picker (hermes model)
+echo  %BRIGHT_YELLOW%[11]%RESET% Back
 echo.
-REM set /p (not choice) so the two-digit "10" can be entered.
+REM set /p (not choice) so the two-digit "10"/"11" can be entered.
 set "MC="
 set /p "MC=Select model: "
-if "!MC!"=="1" goto :mdl_kimi
-if "!MC!"=="2" goto :mdl_ollama
-if "!MC!"=="3" goto :mdl_lmstudio
-if "!MC!"=="4" goto :mdl_gemini_oauth
-if "!MC!"=="5" goto :mdl_gemini
-if "!MC!"=="6" goto :mdl_openrouter
-if "!MC!"=="7" goto :mdl_anthropic
-if "!MC!"=="8" goto :mdl_custom
-if "!MC!"=="9" ( hermes model & goto :model_done )
-if "!MC!"=="10" goto :detect_status
+if "!MC!"=="1" goto :mdl_nvidia
+if "!MC!"=="2" goto :mdl_kimi
+if "!MC!"=="3" goto :mdl_ollama
+if "!MC!"=="4" goto :mdl_lmstudio
+if "!MC!"=="5" goto :mdl_gemini_oauth
+if "!MC!"=="6" goto :mdl_gemini
+if "!MC!"=="7" goto :mdl_openrouter
+if "!MC!"=="8" goto :mdl_anthropic
+if "!MC!"=="9" goto :mdl_custom
+if "!MC!"=="10" ( hermes model & goto :model_done )
+if "!MC!"=="11" goto :detect_status
 goto :menu_model
+
+:mdl_nvidia
+REM NVIDIA NIM - free credits at build.nvidia.com. The native 'nvidia' provider
+REM reads NVIDIA_API_KEY and has the NIM base_url built in. DeepSeek V4: 'flash'
+REM is the verified default (fast first token). 'deepseek-ai/deepseek-v4-pro' is
+REM stronger but runs in full thinking mode and stalls past Hermes' 180s
+REM stream-stale limit with large context - typeable but not recommended.
+REM Mirrors launch.sh menu_model option [1].
+set "M=deepseek-ai/deepseek-v4-flash"
+set /p "M=NVIDIA model [deepseek-ai/deepseek-v4-flash]: "
+findstr /B /C:"NVIDIA_API_KEY=" "%HERMES_HOME%\.env" 2>nul | findstr /R "=..*" >nul 2>&1
+if errorlevel 1 (
+    set "K="
+    set /p "K=NVIDIA_API_KEY (free at build.nvidia.com): "
+    python "%PORTABLE_ROOT%\scripts\switch-model.py" --config "%HERMES_HOME%\config.yaml" --env "%HERMES_HOME%\.env" --provider nvidia --model "!M!" --base-url "" --set-env NVIDIA_API_KEY=!K!
+) else (
+    python "%PORTABLE_ROOT%\scripts\switch-model.py" --config "%HERMES_HOME%\config.yaml" --env "%HERMES_HOME%\.env" --provider nvidia --model "!M!" --base-url ""
+)
+goto :model_done
 
 :mdl_kimi
 python "%PORTABLE_ROOT%\scripts\switch-model.py" --config "%HERMES_HOME%\config.yaml" --env "%HERMES_HOME%\.env" --provider kimi-coding --model kimi-for-coding --base-url ""

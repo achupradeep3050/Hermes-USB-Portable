@@ -221,7 +221,9 @@ GEMINI_API_KEY=                          # Optional — Gemini via API key
 
 Alternatively, you can select option **`[2]` (Setup / Reconfigure)** in the Launcher Terminal Menu to configure model providers interactively.
 
-**No API key?** Use **`[4] Google Gemini — login with Google (OAuth, no API key)`**. A browser window opens for Google sign-in; credentials are stored in `data/auth/google_oauth.json` on the USB and travel with the drive. See [docs/GEMINI-LOGIN.md](docs/GEMINI-LOGIN.md) for models, troubleshooting, and the Google ToS note.
+**Want a free model?** Use **`[1] NVIDIA — DeepSeek V4`** in the `[M]` menu. NVIDIA gives free inference credits at <https://build.nvidia.com/> — grab a key (`nvapi-…`), and the launcher's native `nvidia` provider handles the rest (endpoint built in, reads `NVIDIA_API_KEY`). Default model **`deepseek-ai/deepseek-v4-flash`** (fast). `deepseek-ai/deepseek-v4-pro` is selectable but runs in thinking mode and is slow under large context — flash is recommended.
+
+**No API key at all?** Use **`[5] Google Gemini — login with Google (OAuth, no API key)`**. A browser window opens for Google sign-in; credentials are stored in `data/auth/google_oauth.json` on the USB and travel with the drive. See [docs/GEMINI-LOGIN.md](docs/GEMINI-LOGIN.md) for models, troubleshooting, and the Google ToS note.
 
 ### Model Switcher
 
@@ -229,14 +231,16 @@ Press **`[M]`** at the main menu (or select **`[3]`**) to switch between all ava
 
 | # | Provider | Auth Method |
 |---|----------|-------------|
-| `[1]` | Kimi ( moonshot) | API key |
-| `[2]` | Ollama | API key (local) |
-| `[3]` | LM Studio | API key (local) |
-| `[4]` | Google Gemini | **Login with Google (OAuth)** |
-| `[5]` | Google Gemini | API key (cloud) |
-| `[6]` | OpenRouter | API key |
-| `[7]` | Anthropic | API key |
-| `[8]` | Custom | API key + custom base URL |
+| `[1]` | **NVIDIA — DeepSeek V4** | API key (**free** credits · NIM) |
+| `[2]` | Kimi (moonshot) | API key |
+| `[3]` | Ollama | API key (local) |
+| `[4]` | LM Studio | API key (local) |
+| `[5]` | Google Gemini | **Login with Google (OAuth)** |
+| `[6]` | Google Gemini | API key (cloud) |
+| `[7]` | OpenRouter | API key |
+| `[8]` | Anthropic | API key |
+| `[9]` | Custom | API key + custom base URL |
+| `[10]` | Full picker | `hermes model` |
 
 ---
 

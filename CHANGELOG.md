@@ -2,6 +2,23 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.7.0] — 2026-06-13
+
+### Added
+- **"NVIDIA — DeepSeek V4" model option** in the model switcher — `launch.sh` `[M]` menu **`[1]`** (and `launch.bat` parity). It wires hermes-agent's **native `nvidia` NIM provider**, which reads `NVIDIA_API_KEY` and has the endpoint (`https://integrate.api.nvidia.com/v1`) built in, so no base-url/key juggling is needed. Picking it prompts for a model (default below) and, if `NVIDIA_API_KEY` isn't already in `data/.env`, for the key (free at <https://build.nvidia.com/>).
+- This gives the drive a **free, working model out of the box** — which matters because the prior default `kimi-for-coding` is **quota-exhausted (HTTP 403)** and the OpenRouter/Nous fallbacks are out of credit, so live chat was effectively dead until now.
+
+### Changed
+- **Default NVIDIA model is `deepseek-ai/deepseek-v4-flash`**, not `-v4-pro`. Reason — verified on Linux:
+  - `deepseek-ai/deepseek-v4-flash` → hermes one-shot returns a real answer (`"NVIDIA OK"`, exit 0); fast first token. ✅
+  - `deepseek-ai/deepseek-v4-pro` → **stalls**. hermes logs: `Stream stale for 180s — no chunks received. model=deepseek-ai/deepseek-v4-pro context=~33,607 tokens. Killing connection.` → `APIConnectionError`, all 3 retries fail. v4-pro runs in full **thinking mode**, and with Hermes' large system+tools+Brain context it doesn't emit a first token before the 180s stream-stale watchdog fires. It's still **typeable** in the menu (type `deepseek-ai/deepseek-v4-pro`) for short-context use, just not the default.
+- The `[M]` menu was renumbered to put NVIDIA first: `[1]` NVIDIA, `[2]` Kimi, `[3]` Ollama, `[4]` LM Studio, `[5]`/`[6]` Gemini (OAuth / API key), `[7]` OpenRouter, `[8]` Anthropic, `[9]` Custom, `[10]` Full picker, `[11]` Back. `launch.bat` mirrors this.
+
+### Notes
+- The live default on the master drive was switched to `provider: nvidia` / `deepseek-ai/deepseek-v4-flash` and **verified end-to-end** (`launch.sh -z "…"` returns a real model reply on Ubuntu 26.04, exFAT). `NVIDIA_API_KEY` was already present in `data/.env`.
+- To enable v4-pro properly one would need to pass NVIDIA's `extra_body={"chat_template_kwargs":{"thinking":false}}` (disables the reasoning trace) through the provider — not currently exposed by the launcher; flash sidesteps it entirely.
+- `launch.bat` parity was added by mirroring the `launch.sh` flow (new `:mdl_nvidia` label, `findstr` check for an existing `NVIDIA_API_KEY`); it was **not re-run on Windows in this session** (no Windows host available) — macOS/Linux `launch.sh` is the verified path.
+
 ## [portable-v1.6.0] — 2026-06-13
 
 ### Fixed

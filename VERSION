@@ -1,12 +1,22 @@
 # Hermes-USB-Portable — version pin
 # Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
 
-portable_version:        portable-v1.6.0
+portable_version:        portable-v1.7.0
 hermes_agent_version:    0.16.0
 hermes_agent_upstream:   NousResearch/hermes-agent
 hermes_agent_commit:     56236b16e383cc656bb8c88429902f4de83f1faf
 synced_on:               2026-06-13
 
+# v1.7.0 — Models: added "NVIDIA — DeepSeek V4" to the model switcher (launch.sh
+#          [M] menu option [1], launch.bat parity). Wires hermes-agent's native
+#          `nvidia` NIM provider (reads NVIDIA_API_KEY, base_url built in) so the
+#          drive has a FREE working model out of the box — important because the
+#          previous default (kimi-for-coding) is quota-exhausted (HTTP 403).
+#          Default model is `deepseek-ai/deepseek-v4-flash` (verified: hermes
+#          one-shot returns a real answer on Linux). `deepseek-ai/deepseek-v4-pro`
+#          is selectable but NOT default — it runs in full thinking mode and
+#          stalls past Hermes' 180s stream-stale limit with large context. See
+#          CHANGELOG.md.
 # v1.6.0 — Linux first-run fix: `launch.sh` aborted on Linux because the drive is
 #          exFAT, which on Linux cannot store symlinks — so `tar -x` of portable
 #          Python/Node (both symlink-heavy) died with "Cannot create symlink:

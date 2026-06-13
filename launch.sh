@@ -432,42 +432,56 @@ menu_model() {
     echo -e "${BOLD}${BRIGHT_WHITE}                  Switch Model / Provider${RESET}"
     echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
     echo ""
-    echo -e "  ${BRIGHT_YELLOW}[1]${RESET}  ${WHITE}Kimi for Coding${RESET}      ${GRAY}cloud (current default)${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[2]${RESET}  ${WHITE}Ollama${RESET}               ${GRAY}local LLM server${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[3]${RESET}  ${WHITE}LM Studio${RESET}            ${GRAY}local LLM server${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[4]${RESET}  ${WHITE}Google Gemini${RESET}        ${GREEN}login with Google${RESET} ${GRAY}(no API key)${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[5]${RESET}  ${WHITE}Google Gemini${RESET}        ${GRAY}cloud (API key)${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[6]${RESET}  ${WHITE}OpenRouter${RESET}           ${GRAY}cloud, 300+ models${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[7]${RESET}  ${WHITE}Anthropic Claude${RESET}     ${GRAY}cloud (API key)${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[8]${RESET}  ${WHITE}Custom endpoint${RESET}      ${GRAY}any OpenAI-compatible URL${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[9]${RESET}  ${WHITE}Full interactive picker${RESET}  ${GRAY}(hermes model)${RESET}"
-    echo -e "  ${BRIGHT_YELLOW}[10]${RESET} ${GRAY}Back${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[1]${RESET}  ${WHITE}NVIDIA — DeepSeek V4${RESET} ${BRIGHT_GREEN}free credits${RESET} ${GRAY}· cloud (NIM)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[2]${RESET}  ${WHITE}Kimi for Coding${RESET}      ${GRAY}cloud (API key)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[3]${RESET}  ${WHITE}Ollama${RESET}               ${GRAY}local LLM server${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[4]${RESET}  ${WHITE}LM Studio${RESET}            ${GRAY}local LLM server${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[5]${RESET}  ${WHITE}Google Gemini${RESET}        ${GREEN}login with Google${RESET} ${GRAY}(no API key)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[6]${RESET}  ${WHITE}Google Gemini${RESET}        ${GRAY}cloud (API key)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[7]${RESET}  ${WHITE}OpenRouter${RESET}           ${GRAY}cloud, 300+ models${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[8]${RESET}  ${WHITE}Anthropic Claude${RESET}     ${GRAY}cloud (API key)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[9]${RESET}  ${WHITE}Custom endpoint${RESET}      ${GRAY}any OpenAI-compatible URL${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[10]${RESET} ${WHITE}Full interactive picker${RESET}  ${GRAY}(hermes model)${RESET}"
+    echo -e "  ${BRIGHT_YELLOW}[11]${RESET} ${GRAY}Back${RESET}"
     echo ""
     read -p "$(echo -e "${BRIGHT_CYAN}Select model: ${RESET}")" mc
     case "$mc" in
-        1) _apply_model "kimi-coding" "kimi-for-coding" "" ;;
-        2) read -p "Ollama model [llama3.1]: " m; m=${m:-llama3.1}
+        1) # NVIDIA NIM — free credits at build.nvidia.com. The native 'nvidia'
+           #   provider reads NVIDIA_API_KEY and has the NIM base_url built in.
+           #   DeepSeek V4: 'flash' is the verified default (fast first token).
+           #   'deepseek-ai/deepseek-v4-pro' is stronger but runs in full thinking
+           #   mode — with Hermes' large context it stalls past the 180s
+           #   stream-stale limit, so it's typeable here but not recommended.
+           read -p "NVIDIA model [deepseek-ai/deepseek-v4-flash]: " m; m=${m:-deepseek-ai/deepseek-v4-flash}
+           if grep -qE '^NVIDIA_API_KEY=.+' "$HERMES_HOME/.env" 2>/dev/null; then
+               _apply_model "nvidia" "$m" ""
+           else
+               read -p "NVIDIA_API_KEY (free at build.nvidia.com): " k
+               _apply_model "nvidia" "$m" "" "NVIDIA_API_KEY=$k"
+           fi ;;
+        2) _apply_model "kimi-coding" "kimi-for-coding" "" ;;
+        3) read -p "Ollama model [llama3.1]: " m; m=${m:-llama3.1}
            read -p "Ollama URL [http://localhost:11434/v1]: " u; u=${u:-http://localhost:11434/v1}
            _apply_model "custom" "$m" "$u" "OPENAI_API_KEY=ollama" ;;
-        3) read -p "LM Studio model (name shown in LM Studio): " m
+        4) read -p "LM Studio model (name shown in LM Studio): " m
            read -p "LM Studio URL [http://127.0.0.1:1234/v1]: " u; u=${u:-http://127.0.0.1:1234/v1}
            _apply_model "lmstudio" "$m" "$u" ;;
-        4) menu_model_gemini_oauth ;;
-        5) read -p "Gemini model [gemini-2.5-flash]: " m; m=${m:-gemini-2.5-flash}
+        5) menu_model_gemini_oauth ;;
+        6) read -p "Gemini model [gemini-2.5-flash]: " m; m=${m:-gemini-2.5-flash}
            read -p "GEMINI_API_KEY: " k
            _apply_model "gemini" "$m" "" "GEMINI_API_KEY=$k" ;;
-        6) read -p "OpenRouter model [anthropic/claude-sonnet-4]: " m; m=${m:-anthropic/claude-sonnet-4}
+        7) read -p "OpenRouter model [anthropic/claude-sonnet-4]: " m; m=${m:-anthropic/claude-sonnet-4}
            read -p "OPENROUTER_API_KEY: " k
            _apply_model "openrouter" "$m" "" "OPENROUTER_API_KEY=$k" ;;
-        7) read -p "Claude model [claude-sonnet-4-6]: " m; m=${m:-claude-sonnet-4-6}
+        8) read -p "Claude model [claude-sonnet-4-6]: " m; m=${m:-claude-sonnet-4-6}
            read -p "ANTHROPIC_API_KEY: " k
            _apply_model "anthropic" "$m" "" "ANTHROPIC_API_KEY=$k" ;;
-        8) read -p "Base URL (OpenAI-compatible): " u
+        9) read -p "Base URL (OpenAI-compatible): " u
            read -p "Model name: " m
            read -p "API key (blank if none): " k
            if [ -n "$k" ]; then _apply_model "custom" "$m" "$u" "OPENAI_API_KEY=$k"; else _apply_model "custom" "$m" "$u"; fi ;;
-        9) hermes model ;;
-        10) detect_status; show_menu; return ;;
+        10) hermes model ;;
+        11) detect_status; show_menu; return ;;
         *) menu_model; return ;;
     esac
     echo ""
