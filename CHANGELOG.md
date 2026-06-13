@@ -2,6 +2,44 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.8.0] — 2026-06-13
+
+### Changed — whole-stack update to latest (CVE / vuln-surface reduction)
+Updated **everything** the portable drive ships, to shrink the vulnerability surface of the bundled
+stack:
+
+| Component | Was | Now |
+|---|---|---|
+| bundled **hermes-agent** | `0.16.0 @56236b16` | `0.16.0 @4b646bc2` (upstream `main` HEAD — newer commits/fixes) |
+| **Python** | 3.11.15 (build 20260510) | **3.13.14** (build 20260610) |
+| **Node.js** | 22.14.0 | **24.16.0** (LTS "Krypton") |
+| **uv** | 0.7.8 | **0.11.21** |
+| **ripgrep** | 14.1.1 | **15.1.0** |
+
+- Python stays within hermes-agent's `requires-python = ">=3.11,<3.14"` — 3.13.14 is the newest
+  allowed. All Python deps (`hermes-agent[all]` + `anthropic` + `python-telegram-bot`) build and
+  install cleanly on 3.13.
+- **Fixed a stale/abandoned Windows pin:** `scripts/setup-windows.ps1` was downloading Python from
+  the **deprecated `indygreg/python-build-standalone`** org at **3.11.10 (20241016)**. Repointed to
+  `astral-sh` 3.13.14 (20260610), matching `setup-unix.sh`. uv on Windows was also far behind (0.6.8).
+- Version pins are now single-sourced as variables (`PY_VER`/`NODE_VER`/`UV_VER`/`RG_VER`) at the top
+  of `setup-unix.sh`; `VERSION` records the exact runtime versions alongside the hermes-agent commit.
+
+### Security
+- **Re-audited the git repo for secrets — clean.** Only 21 files are tracked (launchers/docs/scripts);
+  every sensitive path (`data/`, `Brain/`, `config.yaml`, `chrome-profile/`, `data/auth/`, the on-drive
+  `.cache/unix-home/.git-credentials`) is gitignored. No API keys/tokens/passwords in tracked files or
+  in the full commit history; no `.env`/key file was ever committed. The only matches are the owner's
+  own public git-config email and download URLs.
+
+### Notes
+- **Verified on Linux (AST-WKS-571, Ubuntu 26.04, exFAT USB):** full clean rebuild — Python 3.13.14,
+  Node v24.16.0, uv 0.11.21, ripgrep 15.1.0 all install via the exFAT-safe path; `ready.flag` written;
+  `launch.sh --version` → Hermes v0.16.0 on **Python 3.13.14**; live NVIDIA `deepseek-v4-flash`
+  one-shot through `launch.sh -z` returns a real reply. macOS/Windows setup scripts updated in lock-step
+  (URLs verified to resolve) but not re-run on those OSes this session.
+- Playwright browser binaries still don't unpack on exFAT-Linux (symlink-based) — non-fatal, unchanged.
+
 ## [portable-v1.7.0] — 2026-06-13
 
 ### Added

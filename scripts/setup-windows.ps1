@@ -26,10 +26,12 @@ New-Item -ItemType Directory -Force -Path $RuntimeDir, $SrcDir, $BinDir, $TempDi
 # ---------------------------------------------------------------------------
 # Download URLs (pinned for reliability)
 # ---------------------------------------------------------------------------
-$PythonUrl  = "https://github.com/indygreg/python-build-standalone/releases/download/20241016/cpython-3.11.10+20241016-x86_64-pc-windows-msvc-install_only.tar.gz"
-$NodeUrl    = "https://nodejs.org/dist/v22.14.0/node-v22.14.0-win-x64.zip"
-$UvUrl      = "https://github.com/astral-sh/uv/releases/download/0.6.8/uv-x86_64-pc-windows-msvc.zip"
-$RgUrl      = "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-pc-windows-msvc.zip"
+# portable-v1.8.0 (2026-06-13): bumped to latest; Python source moved from the
+# abandoned indygreg org to astral-sh. Python within hermes-agent >=3.11,<3.14.
+$PythonUrl  = "https://github.com/astral-sh/python-build-standalone/releases/download/20260610/cpython-3.13.14+20260610-x86_64-pc-windows-msvc-install_only.tar.gz"
+$NodeUrl    = "https://nodejs.org/dist/v24.16.0/node-v24.16.0-win-x64.zip"
+$UvUrl      = "https://github.com/astral-sh/uv/releases/download/0.11.21/uv-x86_64-pc-windows-msvc.zip"
+$RgUrl      = "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/ripgrep-15.1.0-x86_64-pc-windows-msvc.zip"
 $GitUrl     = "https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.1/MinGit-2.53.0-64-bit.zip"
 $SourceUrl  = "https://github.com/NousResearch/hermes-agent/archive/refs/heads/main.zip"
 
@@ -188,7 +190,7 @@ if (Test-Path $readyFlag) {
 # ---------------------------------------------------------------------------
 # 1. Portable Python
 # ---------------------------------------------------------------------------
-Write-Step "Installing portable Python 3.11 ..."
+Write-Step "Installing portable Python 3.13 ..."
 $pyArchive = Join-Path $RuntimeDir "python.tar.gz"
 Download-File $PythonUrl $pyArchive
 Extract-TarGz $pyArchive (Join-Path $RuntimeDir "python")
@@ -197,7 +199,7 @@ Write-Done "Python ready"
 # ---------------------------------------------------------------------------
 # 2. Node.js
 # ---------------------------------------------------------------------------
-Write-Step "Installing Node.js 22 LTS ..."
+Write-Step "Installing Node.js 24 LTS ..."
 $nodeArchive = Join-Path $RuntimeDir "node.zip"
 Download-File $NodeUrl $nodeArchive
 $nodeTemp = Join-Path $TempDir "node"

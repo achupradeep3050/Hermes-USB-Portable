@@ -1,12 +1,28 @@
 # Hermes-USB-Portable — version pin
 # Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
 
-portable_version:        portable-v1.7.0
+portable_version:        portable-v1.8.0
 hermes_agent_version:    0.16.0
 hermes_agent_upstream:   NousResearch/hermes-agent
-hermes_agent_commit:     56236b16e383cc656bb8c88429902f4de83f1faf
+hermes_agent_commit:     4b646bc21e64eddeb5dfb3c48acf4388d8bdf1fd
 synced_on:               2026-06-13
 
+# Pinned portable runtimes (bumped to latest in v1.8.0):
+#   python:   3.13.14  (python-build-standalone 20260610, astral-sh)
+#   node:     24.16.0  (LTS "Krypton")
+#   uv:       0.11.21
+#   ripgrep:  15.1.0
+
+# v1.8.0 — Whole-stack update to latest. Re-synced bundled hermes-agent to upstream
+#          main HEAD (56236b16 -> 4b646bc2; still 0.16.0, newer commits/fixes) and
+#          bumped every portable runtime: Python 3.11.15 -> 3.13.14 (within
+#          hermes-agent's requires-python >=3.11,<3.14), Node 22.14.0 -> 24.16.0 LTS,
+#          uv 0.7.8 -> 0.11.21, ripgrep 14.1.1 -> 15.1.0. Also fixed the Windows
+#          setup pin pointing at the ABANDONED `indygreg/python-build-standalone`
+#          (3.11.10) — now `astral-sh` 3.13.14, matching unix. Motivation: shrink the
+#          CVE/vuln surface of the bundled stack. Verified on Linux (AST-WKS-571):
+#          full rebuild on Python 3.13.14, hermes runs + live NVIDIA one-shot OK.
+#          Git re-scanned: no secrets tracked/in history. See CHANGELOG.md.
 # v1.7.0 — Models: added "NVIDIA — DeepSeek V4" to the model switcher (launch.sh
 #          [M] menu option [1], launch.bat parity). Wires hermes-agent's native
 #          `nvidia` NIM provider (reads NVIDIA_API_KEY, base_url built in) so the

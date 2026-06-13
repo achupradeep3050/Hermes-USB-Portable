@@ -66,16 +66,20 @@ case "$ARCH_RAW" in
     *)     PYTHON_ARCH="$ARCH_RAW" ;;
 esac
 
+# Pinned runtime versions (portable-v1.8.0, 2026-06-13). Python kept within
+# hermes-agent's `requires-python = ">=3.11,<3.14"`.
+PY_TAG="20260610"; PY_VER="3.13.14"
+NODE_VER="24.16.0"; UV_VER="0.11.21"; RG_VER="15.1.0"
 if [ "$PLATFORM" = "macos" ]; then
-    PYTHON_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20260510/cpython-3.11.15+20260510-${PYTHON_ARCH}-apple-darwin-install_only.tar.gz"
-    NODE_URL="https://nodejs.org/dist/v22.14.0/node-v22.14.0-darwin-${ARCH}.tar.gz"
-    UV_URL="https://github.com/astral-sh/uv/releases/download/0.7.8/uv-${PYTHON_ARCH}-apple-darwin.tar.gz"
-    RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-${PYTHON_ARCH}-apple-darwin.tar.gz"
+    PYTHON_URL="https://github.com/astral-sh/python-build-standalone/releases/download/${PY_TAG}/cpython-${PY_VER}+${PY_TAG}-${PYTHON_ARCH}-apple-darwin-install_only.tar.gz"
+    NODE_URL="https://nodejs.org/dist/v${NODE_VER}/node-v${NODE_VER}-darwin-${ARCH}.tar.gz"
+    UV_URL="https://github.com/astral-sh/uv/releases/download/${UV_VER}/uv-${PYTHON_ARCH}-apple-darwin.tar.gz"
+    RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/${RG_VER}/ripgrep-${RG_VER}-${PYTHON_ARCH}-apple-darwin.tar.gz"
 else
-    PYTHON_URL="https://github.com/astral-sh/python-build-standalone/releases/download/20260510/cpython-3.11.15+20260510-${ARCH_RAW}-unknown-linux-gnu-install_only.tar.gz"
-    NODE_URL="https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-${ARCH}.tar.xz"
-    UV_URL="https://github.com/astral-sh/uv/releases/download/0.7.8/uv-${ARCH_RAW}-unknown-linux-gnu.tar.gz"
-    RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-${ARCH_RAW}-unknown-linux-musl.tar.gz"
+    PYTHON_URL="https://github.com/astral-sh/python-build-standalone/releases/download/${PY_TAG}/cpython-${PY_VER}+${PY_TAG}-${ARCH_RAW}-unknown-linux-gnu-install_only.tar.gz"
+    NODE_URL="https://nodejs.org/dist/v${NODE_VER}/node-v${NODE_VER}-linux-${ARCH}.tar.xz"
+    UV_URL="https://github.com/astral-sh/uv/releases/download/${UV_VER}/uv-${ARCH_RAW}-unknown-linux-gnu.tar.gz"
+    RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/${RG_VER}/ripgrep-${RG_VER}-${ARCH_RAW}-unknown-linux-musl.tar.gz"
 fi
 
 SOURCE_URL="https://github.com/NousResearch/hermes-agent/archive/refs/heads/main.tar.gz"
@@ -225,7 +229,7 @@ extract_txz() { _extract_archive "$1" "$2" ""; }
 # ---------------------------------------------------------------------------
 # 1. Portable Python
 # ---------------------------------------------------------------------------
-step "Installing portable Python 3.11 ..."
+step "Installing portable Python ${PY_VER} ..."
 PY_ARCHIVE="$RUNTIME_DIR/python.tar.gz"
 if ! download "$PYTHON_URL" "$PY_ARCHIVE"; then
     echo "[ERROR] Failed to download Python. Check your internet connection."
@@ -242,7 +246,7 @@ done_msg "Python ready"
 # ---------------------------------------------------------------------------
 # 2. Node.js
 # ---------------------------------------------------------------------------
-step "Installing Node.js 22 LTS ..."
+step "Installing Node.js ${NODE_VER} (LTS) ..."
 NODE_ARCHIVE="$RUNTIME_DIR/node.tar.xz"
 if [ "$PLATFORM" = "macos" ]; then
     NODE_ARCHIVE="$RUNTIME_DIR/node.tar.gz"

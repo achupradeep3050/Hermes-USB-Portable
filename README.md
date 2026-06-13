@@ -133,7 +133,7 @@ Hermes Portable solves the host-dependency issue by establishing a sandboxed run
 ```mermaid
 graph TD
     A[User triggers launch script] --> B{Runtimes setup?}
-    B -- No / First Run --> C[Download Portable Python 3.11 & Node.js 22]
+    B -- No / First Run --> C[Download Portable Python 3.13 & Node.js 24]
     C --> D[Clone Hermes Agent Source to src/]
     D --> E[Create isolated virtual env using uv]
     E --> F[Install Python & Node packages locally]
@@ -359,7 +359,7 @@ This repo follows a **portable-specific** versioning scheme separate from the up
 | `portable_version` (`portable-vX.Y.Z`) | The launcher, scripts, and docs in **this** repo. Bump on wrapper changes. |
 | `hermes_agent_commit` | The exact upstream `hermes-agent` commit `src/` is synced to (recorded in `VERSION`). |
 
-Tagged releases range from **`portable-v1.0.0`** through **`portable-v1.4.1`**. Each tag is pushed to GitHub and is auditable.
+Tagged releases range from **`portable-v1.0.0`** through **`portable-v1.8.0`**. Each tag is pushed to GitHub and is auditable. The bundled stack as of **v1.8.0**: hermes-agent `0.16.0`, Python `3.13.14`, Node `24.16.0`, uv `0.11.21`, ripgrep `15.1.0`.
 
 - **`VERSION`** — pairs the portable wrapper version with the bundled hermes-agent commit; updated on every sync.
 - **`CHANGELOG.md`** — tracks all portable-specific changes. Read it before updating to see what changed.
@@ -466,6 +466,6 @@ Tagged releases range from **`portable-v1.0.0`** through **`portable-v1.4.1`**. 
 ## 📝 Credits & Attribution
 
 *   **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** — Powerful Agentic core created by [Nous Research](https://github.com/NousResearch).
-*   **[python-build-standalone](https://github.com/indygreg/python-build-standalone)** — Portable Python interpreter compilation.
+*   **[python-build-standalone](https://github.com/astral-sh/python-build-standalone)** — Portable Python interpreter compilation.
 *   **[uv](https://github.com/astral-sh/uv)** — Blazing fast package installer and resolver.
 *   **[Obsidian](https://obsidian.md/)** — Markdown-based knowledge base used for the portable Brain vault.
