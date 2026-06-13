@@ -32,8 +32,9 @@
 *    **Portable Chrome Launcher**: Carry your Chrome profile (logins, bookmarks, extensions) on the USB so you never re-login on a new PC.
 *    **Web Dashboard**: Built-in FastAPI + Vite React UI served at `http://127.0.0.1:9119` for config, API keys, sessions, and in-browser chat.
 *    **Safe Eject**: One menu option saves sessions, organises/verifies the Brain, flushes sync, then ejects the drive cleanly.
+*    **Free Model Out of the Box**: Ships configured for NVIDIA's free **DeepSeek V4** NIM endpoint — add a free `nvapi-…` key and the agent works immediately, no paid API required.
 *    **Google Gemini via OAuth**: "Login with Google" model option — no API key or billing setup required.
-*    **Fast Model Switcher**: Press `[M]` to switch between Kimi, Ollama, LM Studio, Gemini, OpenRouter, Anthropic, or custom without editing files.
+*    **Fast Model Switcher**: Press `[M]` to switch providers without editing files — NVIDIA DeepSeek V4 (free), Kimi, Ollama, LM Studio, Google Gemini (OAuth or API key), OpenRouter, Anthropic, or any custom OpenAI-compatible endpoint.
 *    **Interactive Console Launcher**: Includes a beautiful terminal UI dashboard with state-tracking for setup status, LLM providers, and background gateways.
 *    **True Privacy & Isolation**: Your API keys (`data/.env`), conversations (`data/sessions/`), OAuth credentials (`data/auth/`), persistent memory, and custom skills are kept strictly within the portable folder.
 *    **Full Hermes Capabilities**: Retains all features of [Nous Research's Hermes Agent](https://github.com/NousResearch/hermes-agent), including memory storage and reusable skill generation.
@@ -77,14 +78,18 @@ The launcher automatically sets `OBSIDIAN_VAULT_PATH` so agents can read from an
 **Brain structure:**
 ```
 Brain/
-├── memories/          # Long-term agent memories
-├── journals/          # Session journals and dated notes
+├── index.md           # Vault index (auto-maintained)
+├── hot.md             # ~500-word warm snapshot of recent activity
+├── log.md             # Append-only activity log
 ├── concepts/          # Concept notes and definitions
+├── entities/          # People, tools, and organisations
+├── projects/          # Per-project knowledge pages
+├── references/        # External resources and pointers
+├── synthesis/         # Cross-topic syntheses
 ├── skills/            # Learned skill documents
+├── journal/           # Dated session journals
 └── devices/           # Per-machine context and handoff notes
 ```
-
-> ℹ️ **macOS note**: use `hdiutil attach` to mount the USB volume before accessing Brain/ on macOS.
 
 See [docs/SAFE-EJECT.md](docs/SAFE-EJECT.md) for the full Safe Eject workflow.
 
@@ -173,10 +178,10 @@ hermes-portable/
 │   ├── setup-unix.sh          # Unix (macOS/Linux) first-run configuration script
 │   └── safe-eject.sh          # Safe USB eject workflow
 ├── Brain/                     # Obsidian vault — long-term memory + knowledge base
-│   ├── memories/              # Long-term agent memories
-│   ├── journals/              # Session journals and dated notes
-│   ├── concepts/              # Concept notes and definitions
+│   ├── index.md               # Vault index + hot.md / log.md (auto-maintained)
+│   ├── concepts/              # Concepts, entities, projects, references, synthesis
 │   ├── skills/                # Learned skill documents
+│   ├── journal/               # Dated session journals
 │   └── devices/               # Per-machine context and handoff notes
 ├── chrome-profile/            # Portable Chrome user profile (on USB)
 │   └── User Data/Default/
@@ -227,19 +232,19 @@ Alternatively, you can select option **`[2]` (Setup / Reconfigure)** in the Laun
 
 ### Model Switcher
 
-Press **`[M]`** at the main menu (or select **`[3]`**) to switch between all available providers and models without editing any files:
+Press **`[M]`** at the main menu to switch between all available providers and models without editing any files:
 
 | # | Provider | Auth Method |
 |---|----------|-------------|
 | `[1]` | **NVIDIA — DeepSeek V4** | API key (**free** credits · NIM) |
-| `[2]` | Kimi (moonshot) | API key |
-| `[3]` | Ollama | API key (local) |
-| `[4]` | LM Studio | API key (local) |
+| `[2]` | Kimi for Coding | API key |
+| `[3]` | Ollama | Local server (URL) |
+| `[4]` | LM Studio | Local server (URL) |
 | `[5]` | Google Gemini | **Login with Google (OAuth)** |
 | `[6]` | Google Gemini | API key (cloud) |
 | `[7]` | OpenRouter | API key |
-| `[8]` | Anthropic | API key |
-| `[9]` | Custom | API key + custom base URL |
+| `[8]` | Anthropic Claude | API key |
+| `[9]` | Custom endpoint | API key + custom base URL |
 | `[10]` | Full picker | `hermes model` |
 
 ---
@@ -360,6 +365,16 @@ This repo follows a **portable-specific** versioning scheme separate from the up
 | `hermes_agent_commit` | The exact upstream `hermes-agent` commit `src/` is synced to (recorded in `VERSION`). |
 
 Tagged releases range from **`portable-v1.0.0`** through **`portable-v1.8.1`**. Each tag is pushed to GitHub and is auditable. The bundled stack as of **v1.8.1**: hermes-agent `0.16.0` (`@cc14b747`), Python `3.13.14`, Node `24.16.0`, uv `0.11.21`, ripgrep `15.1.0` — verified end-to-end on **macOS (Apple Silicon)** and Linux.
+
+**Recent release highlights** (full detail in [CHANGELOG.md](CHANGELOG.md)):
+
+| Version | Highlights |
+|---|---|
+| **v1.8.1** | First clean macOS (Apple Silicon) verification of the v1.8.0 stack; re-synced hermes-agent to upstream `main` (`@cc14b747`, +27 commits incl. security fixes). |
+| **v1.8.0** | Whole-stack update to latest to cut the vuln surface — Python 3.13.14, Node 24.16.0 LTS, uv 0.11.21, ripgrep 15.1.0. |
+| **v1.7.0** | Free **NVIDIA DeepSeek V4** model added to the switcher (works out of the box). |
+| **v1.6.0** | Linux + exFAT first-run fix (symlink-free runtime extraction). |
+| **v1.1.0–v1.5.0** | Safe Eject, Gemini OAuth login, Web Dashboard, Model Switcher, and the versioning scheme. |
 
 - **`VERSION`** — pairs the portable wrapper version with the bundled hermes-agent commit; updated on every sync.
 - **`CHANGELOG.md`** — tracks all portable-specific changes. Read it before updating to see what changed.
