@@ -2,6 +2,73 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.8.1] — 2026-06-13
+
+### Verified — first clean macOS (Apple Silicon) rebuild of the v1.8.0 stack
+v1.8.0 shipped the whole-stack runtime bump but, as its own changelog noted, was **only re-run and
+verified on Linux** — the macOS/Windows setup scripts were updated "in lock-step (URLs verified to
+resolve) but not re-run on those OSes this session." This release closes that gap on macOS.
+
+**Root cause found on first macOS plug-in:** the on-drive macOS runtime cache
+(`.cache/runtimes/macos-arm64/`) was still the **pre-v1.8.0 stack** — Python **3.11.15**, uv 0.7.8,
+ripgrep 14.1.1 — built 2026-06-06, before v1.8.0's runtime bump landed (2026-06-13). The launcher's
+`ready.flag` was present, so `launch.sh` would have happily run the *old* 3.11 stack, and
+`setup-unix.sh`'s `download()` reuses any same-named archive already on disk (the cached
+`python.tar.gz` is a valid gzip), so simply deleting `ready.flag` would **not** have refetched 3.13.
+
+**Fix:** moved the stale cache aside and forced a clean rebuild, which fetched the correct v1.8.0
+pins (Python 3.13.14 / Node 24.16.0 / uv 0.11.21 / ripgrep 15.1.0) and re-synced the bundled
+hermes-agent source from upstream `main`.
+
+### Changed — hermes-agent source refreshed to upstream main HEAD
+| Component | Was | Now |
+|---|---|---|
+| bundled **hermes-agent** | `0.16.0 @4b646bc2` | `0.16.0 @cc14b747` (upstream `main` HEAD, **+27 commits**) |
+
+- The 27 new commits are upstream fixes, including **three `fix(security)`** commits
+  (`fail closed when an own-policy gateway adapter has no allowlist`, `stop /api/status leaking host
+  paths and PID on gated binds`, plus a WeCom sender-allowlist fix) — directly in line with v1.8.0's
+  vuln-surface-reduction goal.
+- **Runtimes were checked and left unchanged** — Python 3.13.14 (build 20260610), Node 24.16.0 LTS,
+  uv 0.11.21 and ripgrep 15.1.0 are each already the newest upstream release (`requires-python` is
+  still `>=3.11,<3.14`, so 3.13.14 remains the ceiling). Nothing to bump.
+
+### Verification (macOS 27.0, Apple Silicon, exFAT USB — `achupradeeps-MacBook-Air`)
+Clean rebuild from an empty `macos-arm64` cache, then:
+
+```
+$ ./launch.sh --version
+Hermes Agent v0.16.0 (2026.6.5)
+Project: /Volumes/New Volume/Hermes-USB-Portable/src/hermes-agent
+Python: 3.13.14
+OpenAI SDK: 2.24.0
+
+$ ./launch.sh doctor ; echo $?
+...core toolsets ✓ (todo, web, kanban); optional ones ⚠ (missing keys / system deps)
+0                       # exits 0
+
+$ printf '6\n' | ./launch.sh      # interactive menu
+... banner renders: provider "nvidia", model "deepseek-ai/deepseek-v4-flash", Brain 72 pages, v0.16.0
+Goodbye!                # option [6] exits cleanly (exit 0)
+
+$ ./launch.sh -z "Reply with exactly: MAC OK"
+MAC OK                  # live NVIDIA deepseek-v4-flash one-shot, exit 0
+```
+
+- `doctor` exits **0**; its 5 listed items are advisory (optional API keys for discord/x_search/moa,
+  a config-migration hint, and a vendor-prefix note on `deepseek-ai/deepseek-v4-flash` + provider
+  `nvidia`). The live one-shot proves that exact provider/model pairing works end-to-end, so the
+  vendor-prefix note is cosmetic for this drive.
+- **Known non-blocker:** Playwright's chromium download failed during setup (`[WARN] Playwright
+  browser install failed`) — browser-driven web automation is unavailable until
+  `python -m playwright install chromium` succeeds; everything else (incl. the `web` toolset) works.
+
+### Security
+- **Re-audited — clean.** 21 files tracked (launchers/docs/scripts only). No API keys/tokens/private
+  keys in tracked content or in the **full commit history**; `data/.env`, `Brain/`, `config.yaml`,
+  `chrome-profile/`, `data/auth/` and `.cache/unix-home/.git-credentials` are all confirmed gitignored
+  and were never committed.
+
 ## [portable-v1.8.0] — 2026-06-13
 
 ### Changed — whole-stack update to latest (CVE / vuln-surface reduction)

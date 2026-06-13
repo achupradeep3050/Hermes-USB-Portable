@@ -359,7 +359,7 @@ This repo follows a **portable-specific** versioning scheme separate from the up
 | `portable_version` (`portable-vX.Y.Z`) | The launcher, scripts, and docs in **this** repo. Bump on wrapper changes. |
 | `hermes_agent_commit` | The exact upstream `hermes-agent` commit `src/` is synced to (recorded in `VERSION`). |
 
-Tagged releases range from **`portable-v1.0.0`** through **`portable-v1.8.0`**. Each tag is pushed to GitHub and is auditable. The bundled stack as of **v1.8.0**: hermes-agent `0.16.0`, Python `3.13.14`, Node `24.16.0`, uv `0.11.21`, ripgrep `15.1.0`.
+Tagged releases range from **`portable-v1.0.0`** through **`portable-v1.8.1`**. Each tag is pushed to GitHub and is auditable. The bundled stack as of **v1.8.1**: hermes-agent `0.16.0` (`@cc14b747`), Python `3.13.14`, Node `24.16.0`, uv `0.11.21`, ripgrep `15.1.0` — verified end-to-end on **macOS (Apple Silicon)** and Linux.
 
 - **`VERSION`** — pairs the portable wrapper version with the bundled hermes-agent commit; updated on every sync.
 - **`CHANGELOG.md`** — tracks all portable-specific changes. Read it before updating to see what changed.

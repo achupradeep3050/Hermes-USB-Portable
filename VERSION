@@ -1,18 +1,30 @@
 # Hermes-USB-Portable — version pin
 # Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
 
-portable_version:        portable-v1.8.0
+portable_version:        portable-v1.8.1
 hermes_agent_version:    0.16.0
 hermes_agent_upstream:   NousResearch/hermes-agent
-hermes_agent_commit:     4b646bc21e64eddeb5dfb3c48acf4388d8bdf1fd
+hermes_agent_commit:     cc14b74718aaab8f3dc69c004b4dccf67077a1e1
 synced_on:               2026-06-13
 
-# Pinned portable runtimes (bumped to latest in v1.8.0):
+# Pinned portable runtimes (unchanged in v1.8.1 — all already latest):
 #   python:   3.13.14  (python-build-standalone 20260610, astral-sh)
 #   node:     24.16.0  (LTS "Krypton")
 #   uv:       0.11.21
 #   ripgrep:  15.1.0
 
+# v1.8.1 — macOS verification + hermes-agent source refresh. Re-synced bundled
+#          hermes-agent to upstream main HEAD (4b646bc2 -> cc14b74; still 0.16.0,
+#          +27 commits incl. 3 fix(security) commits). Runtimes already latest
+#          (Python 3.13.14, Node 24.16.0, uv 0.11.21, ripgrep 15.1.0 all confirmed
+#          newest upstream), so nothing bumped. FIRST clean macOS (arm64) rebuild
+#          of the v1.8.0 stack: the on-drive macOS cache was still the pre-v1.8.0
+#          Python 3.11.15 build, never rebuilt against v1.8.0's pins. Verified on
+#          macOS 27.0 / Apple Silicon (achupradeeps-MacBook-Air):
+#          launch.sh --version -> v0.16.0 on Python 3.13.14; doctor exits 0;
+#          interactive menu renders + exits clean; live NVIDIA deepseek-v4-flash
+#          one-shot returns "MAC OK". Git re-scanned: no secrets tracked/in history.
+#          See CHANGELOG.md.
 # v1.8.0 — Whole-stack update to latest. Re-synced bundled hermes-agent to upstream
 #          main HEAD (56236b16 -> 4b646bc2; still 0.16.0, newer commits/fixes) and
 #          bumped every portable runtime: Python 3.11.15 -> 3.13.14 (within
