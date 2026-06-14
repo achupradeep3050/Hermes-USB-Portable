@@ -9,8 +9,8 @@ src/
 # Sync it to a PRIVATE repo if you want it backed up.
 Brain/
 
-# Session handoff / scratch notes
-MAC-HANDOFF-PROMPT.md
+# Session handoff / scratch notes (per-OS handoff prompts stay on the USB, never published)
+*-HANDOFF-PROMPT.md
 *.console.err
 
 # Claude Code local workspace config (per-machine, not for the public repo)

@@ -2,6 +2,66 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.8.3] — 2026-06-14
+
+### Windows installer hardening + storage docs (two fixes adopted from upstream `techjarves`, one found here)
+Brought this fork up to parity with two improvements that upstream **`techjarves/main`** already had and
+we were missing — both harden the Windows first-run/re-run path and shrink the eventual upstream-merge
+conflict surface — plus a third re-run bug uncovered while verifying them on Windows.
+
+**A — Lock-tolerant source refresh** (`scripts/setup-windows.ps1`). Replacing `src\hermes-agent` used a
+plain `Remove-Item -Recurse -Force` + `Move-Item`, which **throws and aborts setup** if any file under
+`src\` is locked on a re-run (antivirus scan, Windows Search indexer, or a still-running hermes during
+the `launch.bat` self-heal). Now done through a `Copy-DirectoryContents` helper that falls back to
+per-child delete + copy when the destination can't be fully removed. *Adapted from upstream commit
+`b2904ba` ("fix locked source refresh during setup").*
+
+**C — `uv venv --clear`** (`scripts/setup-windows.ps1`). uv 0.11.x **aborts** with *"A virtual
+environment already exists … use the `--clear` flag"* when the venv is present, so **every re-run — and
+the `launch.bat` self-heal that re-runs setup when `hermes.exe` is missing — failed at venv creation.**
+The v1.8.0 uv bump (0.6.8 → 0.11.21) introduced this behaviour; clean installs never hit it, so it went
+unnoticed until this round's re-run testing. Added `--clear` (matches `setup-unix.sh`, which `rm -rf`s
+the venv first). *Found during this v1.8.3 Windows verification.*
+
+**B — Storage free-space guidance** (`README.md`). The "Cache & Runtime Footprint" section gains a
+recommended-free-space table (one platform → 2 GB min / 4 GB rec; all three OSes → 8 GB+). *Adapted from
+upstream commit `3c639d7` ("docs: clarify portable storage requirements").*
+
+All three are **Windows-only code changes** — `scripts/setup-unix.sh` and `launch.sh` are untouched
+(on Unix `rm -rf` already removes open files, and the unix venv path pre-clears). The bundled
+hermes-agent pin is unchanged (`0.16.0 @6b76284c`); runtimes already newest.
+
+### Verification (Windows 11, 10.0.26200, exFAT USB — `LEGION`) — **Windows only this round**
+- `Copy-DirectoryContents` unit-tested: normal replace ✓; **locked-file fallback ✓** (does not throw,
+  and the new files land even with a file held open in the destination).
+- The re-run that previously aborted at venv now completes end-to-end:
+  `[OK] Source code ready` (A) → `[OK] Virtual environment ready` (C) → `[OK] Dependencies installed`
+  → `Setup Complete`.
+
+```
+> launch.bat --version
+Hermes Agent v0.16.0 (2026.6.5)   Python: 3.13.14        # exit 0
+
+> launch.bat doctor   (exit 0)
+... Python 3.13.14 OK; venv active; versions consistent (0.16.0); NVIDIA NIM connectivity OK
+... 4 advisory items only (vendor-prefix note on the model slug, config migration, optional keys)
+
+> launch.bat -z "Reply with exactly: WIN OK"
+WIN OK            # free NVIDIA NIM deepseek-v4-flash one-shot, exit 0
+```
+
+- The live one-shot's **first** attempt returned no final response (a transient NVIDIA free-tier
+  hiccup); the immediate retry returned `WIN OK`. doctor's NVIDIA NIM connectivity check was green
+  throughout.
+- **Not re-run on macOS or Linux this round.** A/C are Windows-only and B is shared docs, so no Unix
+  change is expected — the owner verifies macOS first, then Linux (handoff prompts prepared), and each
+  will append its evidence here.
+
+### Security
+- Re-audited — clean. 21 files tracked (launchers/docs/scripts only); no API keys/tokens/private keys
+  in tracked content or in the full commit history. `data/`, `Brain/`, `config.yaml`, `chrome-profile/`,
+  `chrome-downloads/`, `data/auth/`, `.cache/` and `src/` are all gitignored.
+
 ## [portable-v1.8.2] — 2026-06-14
 
 ### Verified — first Windows (x64) run of the v1.8.x stack (and the v1.7.0 NVIDIA menu)

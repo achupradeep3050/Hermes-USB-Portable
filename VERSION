@@ -1,18 +1,39 @@
 # Hermes-USB-Portable — version pin
 # Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
 
-portable_version:        portable-v1.8.2
+portable_version:        portable-v1.8.3
 hermes_agent_version:    0.16.0
 hermes_agent_upstream:   NousResearch/hermes-agent
 hermes_agent_commit:     6b76284c7769e0ca80012a5a4b7e22b1cea05b6b
 synced_on:               2026-06-14
 
-# Pinned portable runtimes (unchanged in v1.8.2 — all already latest):
+# Pinned portable runtimes (unchanged in v1.8.3 — all already latest):
 #   python:   3.13.14  (python-build-standalone 20260610, astral-sh)
 #   node:     24.16.0  (LTS "Krypton")
 #   uv:       0.11.21
 #   ripgrep:  15.1.0
 
+# v1.8.3 — Windows hardening + storage docs, ADOPTED FROM UPSTREAM techjarves.
+#          Pulled two improvements that techjarves/main already had and this fork
+#          lacked — both narrow the eventual upstream-merge conflict surface and
+#          harden the Windows installer:
+#          (A) scripts/setup-windows.ps1 now replaces src\hermes-agent through a
+#              lock-tolerant Copy-DirectoryContents helper (adapted from upstream
+#              commit b2904ba "fix locked source refresh during setup"). The old
+#              Remove-Item + Move-Item aborted setup if any file under src was
+#              locked on a re-run (antivirus / Windows Search indexer / a still-
+#              running hermes); the helper degrades gracefully (per-child delete
+#              then copy).
+#          (B) README "Cache & Runtime Footprint" gains a recommended-free-space
+#              table (adapted from upstream commit 3c639d7 "docs: clarify portable
+#              storage requirements").
+#          WINDOWS-ONLY change — setup-unix.sh / launch.sh untouched; macOS and
+#          Linux NOT re-run this round (owner verifies macOS first, then Linux).
+#          hermes-agent pin unchanged (@6b76284c); runtimes already newest.
+#          Verified on Windows 11 (10.0.26200 / LEGION, exFAT): Copy-DirectoryContents
+#          unit-tested (normal + locked-file fallback both pass); clean rebuild still
+#          completes; launch.bat --version -> v0.16.0 / Python 3.13.14; doctor exits
+#          0; live one-shot -> "WIN OK". Git re-scanned: no secrets. See CHANGELOG.md.
 # v1.8.2 — Windows verification + exFAT setup fix + hermes-agent source refresh.
 #          FIRST clean Windows (x64) rebuild of the v1.8.x stack. Same trap as
 #          macOS in v1.8.1: the on-drive windows-x64 cache was still the PRE-v1.8.0

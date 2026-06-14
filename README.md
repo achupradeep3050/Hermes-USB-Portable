@@ -338,6 +338,17 @@ Full reference: [docs/SAFE-EJECT.md](docs/SAFE-EJECT.md).
 
 > ℹ️ *Note: If you run this folder across multiple operating systems (e.g., Windows at home and macOS at work), the `.cache/runtimes/` folder will scale to store the respective platforms (~1.8 GB total).*
 
+**Recommended free space to reserve** (a full Windows x64 first-run install measures ~1.5 GB):
+
+| Use case | Free space to reserve |
+| :--- | :--- |
+| **One platform only** | **2 GB minimum**, 4 GB recommended |
+| **Windows + one Unix platform** | **4 – 6 GB** recommended |
+| **Windows + macOS + Linux runtimes** | **8 GB+** recommended |
+| **Heavy long-term use** (many sessions / backups) | **16 – 32 GB** recommended |
+
+> Each operating system and CPU architecture gets its own `.cache/runtimes/<platform>-<arch>/` folder, so a single drive used across Windows, macOS and Linux uses proportionally more. *(Free-space guidance adapted from upstream `techjarves`.)*
+
 ---
 
 ## 🔄 Updating Hermes Agent
@@ -364,12 +375,13 @@ This repo follows a **portable-specific** versioning scheme separate from the up
 | `portable_version` (`portable-vX.Y.Z`) | The launcher, scripts, and docs in **this** repo. Bump on wrapper changes. |
 | `hermes_agent_commit` | The exact upstream `hermes-agent` commit `src/` is synced to (recorded in `VERSION`). |
 
-Tagged releases range from **`portable-v1.0.0`** through **`portable-v1.8.2`**. Each tag is pushed to GitHub and is auditable. The bundled stack as of **v1.8.2**: hermes-agent `0.16.0` (`@6b76284c`), Python `3.13.14`, Node `24.16.0`, uv `0.11.21`, ripgrep `15.1.0` — verified end-to-end on **macOS (Apple Silicon)**, **Linux**, and **Windows (x64)**.
+Tagged releases range from **`portable-v1.0.0`** through **`portable-v1.8.3`**. Each tag is pushed to GitHub and is auditable. The bundled stack as of **v1.8.3**: hermes-agent `0.16.0` (`@6b76284c`), Python `3.13.14`, Node `24.16.0`, uv `0.11.21`, ripgrep `15.1.0` — the runtime/agent stack is verified end-to-end on **macOS (Apple Silicon)**, **Linux**, and **Windows (x64)**. (v1.8.3's Windows-installer hardening is Windows-tested; macOS/Linux re-verification pending.)
 
 **Recent release highlights** (full detail in [CHANGELOG.md](CHANGELOG.md)):
 
 | Version | Highlights |
 |---|---|
+| **v1.8.3** | Windows installer hardening — lock-tolerant source refresh in `setup-windows.ps1` — plus storage free-space guidance, both adopted from upstream `techjarves` (`b2904ba`, `3c639d7`). Windows-tested; macOS/Linux pending. |
 | **v1.8.2** | First Windows (x64) verification of the v1.8.x stack; fixed exFAT `tar` extraction in `setup-windows.ps1` (`-m` skips the failing mtime restore); re-synced hermes-agent to upstream `main` (`@6b76284c`). |
 | **v1.8.1** | First clean macOS (Apple Silicon) verification of the v1.8.0 stack; re-synced hermes-agent to upstream `main` (`@cc14b747`, +27 commits incl. security fixes). |
 | **v1.8.0** | Whole-stack update to latest to cut the vuln surface — Python 3.13.14, Node 24.16.0 LTS, uv 0.11.21, ripgrep 15.1.0. |

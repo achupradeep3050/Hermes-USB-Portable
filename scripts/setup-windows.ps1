@@ -186,6 +186,26 @@ function Move-SubfolderContents($Source, $Dest) {
     }
 }
 
+function Copy-DirectoryContents($Source, $Dest) {
+    # Replace $Dest with the contents of $Source, tolerating a LOCKED destination.
+    # On Windows a file under src\hermes-agent can be held open (antivirus scan,
+    # Search indexer, or a still-running hermes during a repair re-run), which makes
+    # a plain `Remove-Item $Dest -Recurse -Force` THROW and abort setup. We try the
+    # clean remove first, then fall back to deleting whatever children we can, then
+    # copy the fresh tree in (Copy-Item merges over any file that couldn't be
+    # removed). Adapted from upstream techjarves commit b2904ba ("fix locked source
+    # refresh during setup").
+    if (Test-Path $Dest) {
+        try {
+            Remove-Item $Dest -Recurse -Force -ErrorAction Stop
+        } catch {
+            Get-ChildItem $Dest -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    New-Item -ItemType Directory -Force -Path $Dest | Out-Null
+    Copy-Item (Join-Path $Source "*") $Dest -Recurse -Force
+}
+
 # ---------------------------------------------------------------------------
 # Health check: if ready.flag exists but core files are missing, start fresh
 # ---------------------------------------------------------------------------
@@ -270,8 +290,10 @@ if (-not $srcSub) {
     throw "Hermes source archive did not contain a source folder"
 }
 $destSrc = Join-Path $SrcDir "hermes-agent"
-if (Test-Path $destSrc) { Remove-Item $destSrc -Recurse -Force }
-Move-Item $srcSub.FullName $destSrc -Force
+# Lock-tolerant replace (see Copy-DirectoryContents): a plain Remove-Item + Move-Item
+# aborts setup if any file in src\hermes-agent is locked on a re-run (AV / indexer /
+# a running hermes). This degrades gracefully instead.
+Copy-DirectoryContents $srcSub.FullName $destSrc
 Write-Done "Source code ready"
 
 # ---------------------------------------------------------------------------
@@ -282,7 +304,11 @@ $pythonExe = Join-Path $RuntimeDir "python\python.exe"
 $venvDir   = Join-Path $RuntimeDir "venv"
 $uvExe     = Join-Path $RuntimeDir "uv\uv.exe"
 
-& $uvExe venv $venvDir --python $pythonExe
+# --clear: replace any existing venv. uv 0.11.x ABORTS with "A virtual environment
+# already exists ... use the --clear flag" if the target is present, so without this
+# every re-run (and the launch.bat self-heal that re-runs setup when hermes.exe is
+# missing) failed at this step. Matches setup-unix.sh, which rm -rf's the venv first.
+& $uvExe venv $venvDir --python $pythonExe --clear
 if ($LASTEXITCODE -ne 0) { throw "Failed to create venv" }
 Write-Done "Virtual environment ready"
 
