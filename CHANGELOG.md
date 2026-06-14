@@ -2,6 +2,102 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.8.2] — 2026-06-14
+
+### Verified — first Windows (x64) run of the v1.8.x stack (and the v1.7.0 NVIDIA menu)
+The Windows launcher (`launch.bat`) and Windows setup (`scripts/setup-windows.ps1`) had been bumped
+in v1.7.0/v1.8.0 (Python 3.13.14, Node 24.16.0, uv 0.11.21, ripgrep 15.1.0, Python source repointed
+from the abandoned `indygreg` org to `astral-sh`, and the new `[M] → [1] NVIDIA — DeepSeek V4` model
+option) but had **never been run on Windows**. This release closes that gap — and fixes a real
+exFAT-only setup bug it exposed.
+
+**Root cause #1 — stale runtime cache (same trap as macOS v1.8.1).** The on-drive
+`.cache/runtimes/windows-x64/` was still the **pre-v1.8.0 stack** — Python **3.11.10**, uv **0.6.8**,
+Node **22.14.0**, ripgrep **14.1.1**, built 2026-06-06 — with `ready.flag` present. So `launch.bat`
+would have happily run the *old* 3.11 stack, and `setup-windows.ps1`'s `Download-File` reuses any
+same-named archive already on disk, so deleting `ready.flag` alone would **not** refetch. Fix: moved
+the stale cache aside and forced a clean rebuild.
+
+**Root cause #2 — `tar` extraction fails on exFAT (the real bug).** The forced clean rebuild
+**aborted at the Node step**. `setup-windows.ps1` extracts archives with the Windows built-in
+`tar.exe` (bsdtar). On the **exFAT** USB, bsdtar's post-extract modification-time restore fails on
+every entry with `Can't restore time: Invalid argument` and makes `tar.exe` exit **non-zero** — even
+though the files extracted fine. `Extract-Zip` treated that as failure and fell through to
+`Expand-Archive`, which then **threw** on the half-populated destination and aborted the whole script
+(no Node/uv/venv/deps ever installed).
+
+**Fix:** pass `-m` (do not restore modification times) to every `tar.exe` call in both `Extract-TarGz`
+and `Extract-Zip`. With `-m`, bsdtar never attempts the failing `utime()`, so it exits 0 on exFAT and
+the fast path succeeds (the `Expand-Archive` fallback is kept as a safety net but is no longer
+triggered). This is Windows-specific — `setup-unix.sh` extracts on a native FS / local-disk stage and
+never hits it, so it is unchanged; runtime version pins stay in lock-step.
+
+```
+# Proof the fix is real (same node.zip, same exFAT drive):
+TEST A (no -m):   exit=1  time-errors=1942  node.exe=True   # false failure -> aborts setup
+TEST B (with -m): exit=0  time-errors=0     node.exe=True   # clean
+```
+
+### Changed — hermes-agent source refreshed to upstream main HEAD
+| Component | Was (v1.8.1) | Now |
+|---|---|---|
+| bundled **hermes-agent** | `0.16.0 @cc14b747` | `0.16.0 @6b76284c` (upstream `main` HEAD, **+26 commits**) |
+
+- The 26 new commits include `fix(update): stop Windows gateways before mutating install` (directly
+  Windows-relevant), three security/approval hardening commits (`fix(security): gate cp/mv/install
+  into ~/.ssh, credential, and shell-rc files`, `fix(approval): detect absolute home shell rc writes`,
+  `fix(approval): gate in-place edits to sensitive user files`), and `feat(read): extract notebook and
+  office documents`, plus gateway/telegram/gemini/desktop/codex fixes.
+- **Runtimes were checked and left unchanged** — Python 3.13.14 (build 20260610), Node 24.16.0 LTS,
+  uv 0.11.21 and ripgrep 15.1.0 are each still the newest upstream release (Node v26 exists but is not
+  LTS; `requires-python` is still `>=3.11,<3.14`, so 3.13.14 remains the ceiling). All six setup asset
+  URLs reconfirmed HTTP 200. Nothing to bump.
+
+### Verification (Windows 11, 10.0.26200, exFAT USB — `LEGION`)
+Clean rebuild from an empty `windows-x64` cache with the fixed script (every step `[OK]`, no
+`restore time` / `zip extraction failed`), then:
+
+```
+> launch.bat --version
+Hermes Agent v0.16.0 (2026.6.5)
+Project: D:\Hermes-USB-Portable\src\hermes-agent
+Python: 3.13.14
+OpenAI SDK: 2.24.0                       # exit 0
+
+> launch.bat doctor   (exit 0)
+... Python 3.13.14 OK; venv active; versions consistent (0.16.0); NVIDIA NIM connectivity OK
+... 3 advisory items only: config v0->v29 migration hint, dead KIMI_API_KEY, optional API keys
+
+# Main menu + [M] model menu render (driven via redirected stdin):
+#   [M] -> model menu shows "[1] NVIDIA - DeepSeek V4  free credits (cloud, NIM)" ... "[11] Back"
+#   [11] -> returns to the main menu  (Back works)
+#   [5] -> "Goodbye"  (exit 0)
+
+# [M] -> [1] NVIDIA (key already present -> findstr check errorlevel 0, no re-prompt):
+config model block: provider kimi-coding/kimi-for-coding  ->  provider nvidia / deepseek-ai/deepseek-v4-flash
+NVIDIA_API_KEY: unchanged (len=70, sha256[0:16]=F179184AA935E782 before and after)   # key preserved
+
+> launch.bat -z "Reply with exactly: WIN OK"
+WIN OK                                   # live NVIDIA deepseek-v4-flash one-shot, exit 0
+```
+
+- `doctor` exits **0**; the 3 listed items are advisory (a config-migration hint, the long-dead
+  `kimi-for-coding` key — `Kimi / Moonshot (invalid API key)`, which is exactly why the default is
+  NVIDIA — and optional provider keys). NVIDIA NIM connectivity is green and the live one-shot proves
+  the `nvidia` / `deepseek-ai/deepseek-v4-flash` pairing works end-to-end.
+- **Default model set to NVIDIA on this drive:** the drive had been left on the quota-dead
+  `kimi-coding`; the `[M] → [1]` test switched it to the intended free default
+  `nvidia` / `deepseek-ai/deepseek-v4-flash` (matches macOS/Linux). `config.yaml` is gitignored
+  (drive state, not a tracked change).
+- Unlike macOS (where Playwright's chromium download failed), Playwright installed cleanly on Windows.
+
+### Security
+- **Re-audited — clean.** 21 files tracked (launchers/docs/scripts only). No API keys/tokens/private
+  keys in tracked content or in the **full 29-commit history** (the only `sk-…` matches are the
+  `sk-…-xxxxxxxxxxxxxxxx` placeholder examples in `README.md`). `data/.env`, `Brain/`, `config.yaml`,
+  `chrome-profile/`, `chrome-downloads/`, `data/auth/`, `.cache/` and `src/` are all confirmed
+  gitignored and were never committed.
+
 ## [portable-v1.8.1] — 2026-06-13
 
 ### Verified — first clean macOS (Apple Silicon) rebuild of the v1.8.0 stack

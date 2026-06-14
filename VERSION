@@ -1,18 +1,40 @@
 # Hermes-USB-Portable — version pin
 # Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
 
-portable_version:        portable-v1.8.1
+portable_version:        portable-v1.8.2
 hermes_agent_version:    0.16.0
 hermes_agent_upstream:   NousResearch/hermes-agent
-hermes_agent_commit:     cc14b74718aaab8f3dc69c004b4dccf67077a1e1
-synced_on:               2026-06-13
+hermes_agent_commit:     6b76284c7769e0ca80012a5a4b7e22b1cea05b6b
+synced_on:               2026-06-14
 
-# Pinned portable runtimes (unchanged in v1.8.1 — all already latest):
+# Pinned portable runtimes (unchanged in v1.8.2 — all already latest):
 #   python:   3.13.14  (python-build-standalone 20260610, astral-sh)
 #   node:     24.16.0  (LTS "Krypton")
 #   uv:       0.11.21
 #   ripgrep:  15.1.0
 
+# v1.8.2 — Windows verification + exFAT setup fix + hermes-agent source refresh.
+#          FIRST clean Windows (x64) rebuild of the v1.8.x stack. Same trap as
+#          macOS in v1.8.1: the on-drive windows-x64 cache was still the PRE-v1.8.0
+#          stack (Python 3.11.10 / uv 0.6.8 / Node 22.14.0 / rg 14.1.1, built
+#          2026-06-06) with ready.flag present — launch.bat would have run the old
+#          3.11 stack and never rebuilt. Root-cause bug found on the forced clean
+#          rebuild: scripts/setup-windows.ps1 extracts with Windows bsdtar, whose
+#          post-extract mtime restore FAILS on the exFAT drive ("Can't restore
+#          time: Invalid argument") and makes tar exit NON-ZERO — aborting setup at
+#          the Node step (the Expand-Archive fallback then threw on the half-written
+#          dir). Fix: pass `-m` (skip mtime restore) to every tar extraction; tar
+#          exits 0 on exFAT (proven: node.zip -> exit 1 + 1942 time-errors without
+#          -m, exit 0 with -m). Re-synced bundled hermes-agent to upstream main HEAD
+#          (cc14b747 -> 6b76284c, +26 commits incl. a Windows-gateway fix + 3
+#          security/approval fixes). Runtimes already newest — nothing bumped.
+#          Verified on Windows 11 (10.0.26200) / LEGION, exFAT USB: clean rebuild
+#          (Py3.13.14/Node24.16.0/uv0.11.21/rg15.1.0); launch.bat --version ->
+#          v0.16.0 on Python 3.13.14; doctor exits 0 (NVIDIA NIM green); main + [M]
+#          model menus render; [M]->[1] switches config to nvidia/deepseek-v4-flash
+#          and keeps NVIDIA_API_KEY; [11] Back returns to main; live one-shot
+#          `launch.bat -z` -> "WIN OK". Git re-scanned: no secrets tracked/in
+#          history. See CHANGELOG.md.
 # v1.8.1 — macOS verification + hermes-agent source refresh. Re-synced bundled
 #          hermes-agent to upstream main HEAD (4b646bc2 -> cc14b74; still 0.16.0,
 #          +27 commits incl. 3 fix(security) commits). Runtimes already latest

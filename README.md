@@ -364,12 +364,13 @@ This repo follows a **portable-specific** versioning scheme separate from the up
 | `portable_version` (`portable-vX.Y.Z`) | The launcher, scripts, and docs in **this** repo. Bump on wrapper changes. |
 | `hermes_agent_commit` | The exact upstream `hermes-agent` commit `src/` is synced to (recorded in `VERSION`). |
 
-Tagged releases range from **`portable-v1.0.0`** through **`portable-v1.8.1`**. Each tag is pushed to GitHub and is auditable. The bundled stack as of **v1.8.1**: hermes-agent `0.16.0` (`@cc14b747`), Python `3.13.14`, Node `24.16.0`, uv `0.11.21`, ripgrep `15.1.0` — verified end-to-end on **macOS (Apple Silicon)** and Linux.
+Tagged releases range from **`portable-v1.0.0`** through **`portable-v1.8.2`**. Each tag is pushed to GitHub and is auditable. The bundled stack as of **v1.8.2**: hermes-agent `0.16.0` (`@6b76284c`), Python `3.13.14`, Node `24.16.0`, uv `0.11.21`, ripgrep `15.1.0` — verified end-to-end on **macOS (Apple Silicon)**, **Linux**, and **Windows (x64)**.
 
 **Recent release highlights** (full detail in [CHANGELOG.md](CHANGELOG.md)):
 
 | Version | Highlights |
 |---|---|
+| **v1.8.2** | First Windows (x64) verification of the v1.8.x stack; fixed exFAT `tar` extraction in `setup-windows.ps1` (`-m` skips the failing mtime restore); re-synced hermes-agent to upstream `main` (`@6b76284c`). |
 | **v1.8.1** | First clean macOS (Apple Silicon) verification of the v1.8.0 stack; re-synced hermes-agent to upstream `main` (`@cc14b747`, +27 commits incl. security fixes). |
 | **v1.8.0** | Whole-stack update to latest to cut the vuln surface — Python 3.13.14, Node 24.16.0 LTS, uv 0.11.21, ripgrep 15.1.0. |
 | **v1.7.0** | Free **NVIDIA DeepSeek V4** model added to the switcher (works out of the box). |

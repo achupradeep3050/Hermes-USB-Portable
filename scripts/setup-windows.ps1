@@ -113,12 +113,20 @@ function Extract-TarGz($Archive, $Destination) {
         Remove-Item $Destination -Recurse -Force
     }
     New-Item -ItemType Directory -Force -Path $Destination | Out-Null
-    # Use Windows built-in tar to avoid Git Bash tar path issues
+    # Use Windows built-in tar to avoid Git Bash tar path issues.
+    # -m (do not restore modification times): the portable drive is exFAT, where
+    # bsdtar's post-extract utime() call fails with "Can't restore time: Invalid
+    # argument" on every entry and makes tar exit NON-ZERO even though the files
+    # extracted fine. That false failure used to abort setup (or trip the slow
+    # Expand-Archive fallback). -m skips the mtime restore, so tar exits 0 on
+    # exFAT. Windows-specific: setup-unix.sh extracts on a native FS / local-disk
+    # stage, so it never hits this. (Verified: node.zip -> exit 1 + 1942 time
+    # errors without -m; exit 0 with -m.)
     $winTar = "C:\Windows\System32\tar.exe"
     if (Test-Path $winTar) {
-        & $winTar -xzf "$Archive" -C "$Destination" --strip-components=1
+        & $winTar -xzf "$Archive" -C "$Destination" --strip-components=1 -m
     } else {
-        & tar.exe -xzf "$Archive" -C "$Destination" --strip-components=1
+        & tar.exe -xzf "$Archive" -C "$Destination" --strip-components=1 -m
     }
     if ($LASTEXITCODE -ne 0) {
         Remove-Item $Destination -Recurse -Force -ErrorAction SilentlyContinue
@@ -136,14 +144,18 @@ function Extract-Zip($Archive, $Destination) {
     New-Item -ItemType Directory -Force -Path $Destination | Out-Null
     try {
         $extracted = $false
+        # -m: skip mtime restore so bsdtar exits 0 on exFAT (see Extract-TarGz).
+        # Without it, tar exits non-zero on the exFAT drive (utime EINVAL) and we
+        # fall through to Expand-Archive, which then throws on the half-populated
+        # destination and aborts setup.
         $winTar = "C:\Windows\System32\tar.exe"
         if (Test-Path $winTar) {
-            & $winTar -xf "$Archive" -C "$Destination"
+            & $winTar -xf "$Archive" -C "$Destination" -m
             if ($LASTEXITCODE -eq 0) {
                 $extracted = $true
             }
         } elseif (Get-Command tar.exe -ErrorAction SilentlyContinue) {
-            & tar.exe -xf "$Archive" -C "$Destination"
+            & tar.exe -xf "$Archive" -C "$Destination" -m
             if ($LASTEXITCODE -eq 0) {
                 $extracted = $true
             }
