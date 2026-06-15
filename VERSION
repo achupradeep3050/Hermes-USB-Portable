@@ -1,18 +1,43 @@
 # Hermes-USB-Portable — version pin
 # Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
 
-portable_version:        portable-v1.8.3
+portable_version:        portable-v1.8.4
 hermes_agent_version:    0.16.0
 hermes_agent_upstream:   NousResearch/hermes-agent
-hermes_agent_commit:     6b76284c7769e0ca80012a5a4b7e22b1cea05b6b
-synced_on:               2026-06-14
+hermes_agent_commit:     0bbf325a8f50cbc7cfc74886705e8a67bb521dad
+synced_on:               2026-06-16
 
-# Pinned portable runtimes (unchanged in v1.8.3 — all already latest):
+# Pinned portable runtimes (unchanged in v1.8.4 — all already latest):
 #   python:   3.13.14  (python-build-standalone 20260610, astral-sh)
 #   node:     24.16.0  (LTS "Krypton")
 #   uv:       0.11.21
 #   ripgrep:  15.1.0
 
+# v1.8.4 — macOS (Apple Silicon) verification of the v1.8.x stack + hermes-agent re-sync.
+#          The on-drive macos-arm64 cache was still the v1.8.1 build (hermes-agent
+#          @cc14b747, 13 Jun); setup-unix.sh fetches hermes-agent main HEAD (it has
+#          no per-commit pin), so the cache trailed the v1.8.3 record pin @6b76284c.
+#          Update check found upstream main +128 commits ahead of @6b76284c (incl.
+#          SSL CA-bundle fail-fast guards, refusal-as-error fixes, provider/OAuth
+#          account-removal). Forced a clean macOS rebuild onto current main HEAD and
+#          re-pinned @6b76284c -> @0bbf325a. Runtimes already newest, unchanged
+#          (Python 3.13.14 / Node 24.16.0 / uv 0.11.21 / ripgrep 15.1.0).
+#          NO Unix code change — setup-unix.sh / launch.sh untouched (v1.8.3's A/C
+#          were Windows-only; B was shared docs). Windows (windows-x64) + Linux
+#          (linux-x64) caches NOT rebuilt this round — Linux verifies next and will
+#          re-sync its own cache to @0bbf325a.
+#          Verified on macOS 27.0 (Apple Silicon, arm64, achupradeeps-MacBook-Air):
+#          clean rebuild completes
+#          (Source ready -> venv ready -> deps -> Setup Complete; Playwright optional
+#          browser install warns, non-blocker); launch.sh --version -> v0.16.0 /
+#          Python 3.13.14; doctor exits 0 (NVIDIA NIM connectivity green, SSL CA
+#          bundle valid; advisories: dead Kimi key, config v0->v29 migration, portable
+#          venv-entry-point false-positive, optional integration keys). [M] -> [1]
+#          NVIDIA kept NVIDIA_API_KEY (sha256[0:16]=f179184aa935e782 before and after)
+#          and set nvidia / deepseek-ai/deepseek-v4-flash; [11] Back works. Live
+#          launch.sh -z -> "MAC OK" (exit 0). New 0bbf325a advisory flags the
+#          vendor-prefixed NVIDIA NIM slug — cosmetic; the live call confirms it works.
+#          Git re-scanned: no secrets tracked or in history. See CHANGELOG.md.
 # v1.8.3 — Windows hardening + storage docs, ADOPTED FROM UPSTREAM techjarves.
 #          Pulled two improvements that techjarves/main already had and this fork
 #          lacked — both narrow the eventual upstream-merge conflict surface and

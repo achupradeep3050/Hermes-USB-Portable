@@ -2,6 +2,53 @@
 
 All notable changes to Hermes-USB-Portable. Versions follow the `portable-vMAJOR.MINOR.PATCH` pin in `VERSION`.
 
+## [portable-v1.8.4] — 2026-06-16
+
+### macOS (Apple Silicon) verification of the v1.8.x stack + hermes-agent re-sync to current main HEAD
+Second of three multi-OS passes on the v1.8.x stack (Windows shipped v1.8.2/v1.8.3; **Linux is next**).
+v1.8.3's changes were **Windows-only** (A/C in `setup-windows.ps1`) plus shared docs (B), so no Unix code
+change was expected on macOS — and none was needed. This release records the macOS confirmation and brings
+the bundled hermes-agent up to current upstream main.
+
+**Why a re-sync (and a version bump).** `scripts/setup-unix.sh` fetches hermes-agent from
+`…/archive/refs/heads/main.tar.gz` — i.e. **main HEAD**, with no per-commit pin; the `hermes_agent_commit`
+in `VERSION` is a *record* of what was last synced, not something setup enforces on Unix. The on-drive
+`macos-arm64` cache was still the **v1.8.1** build (hermes-agent `@cc14b747`, 13 Jun), trailing even the
+v1.8.3 record pin `@6b76284c`. The step-5 update check found upstream main **+128 commits** ahead of
+`@6b76284c`, including **SSL CA-bundle fail-fast guards**, refusal-as-error fixes, and provider/OAuth
+account-removal. Rather than verify a stale tree, forced a clean macOS rebuild onto current main HEAD and
+re-pinned **`@6b76284c` → `@0bbf325a`**.
+
+**No Unix code change.** `scripts/setup-unix.sh` and `launch.sh` are byte-identical to v1.8.3 (and to the
+v1.8.1 macOS-verified versions). Portable runtimes are already newest and unchanged: **Python 3.13.14 ·
+Node 24.16.0 LTS · uv 0.11.21 · ripgrep 15.1.0**. The Windows (`windows-x64`) and Linux (`linux-x64`)
+caches were **not** rebuilt this round — Linux verifies next and will re-sync its own cache to `@0bbf325a`.
+
+### Verification (macOS, Apple Silicon / arm64) — **macOS only this round; Linux next**
+- **Clean rebuild** (cache moved aside, `src/hermes-agent` cleared, fresh `source.tar.gz` = main HEAD):
+  `[OK] Source code ready` → `[OK] Virtual environment ready` → `[OK] Dependencies installed` →
+  `Setup Complete`. Playwright optional browser install warns (`web tools may be limited`) — non-blocker,
+  same as v1.8.1.
+- `bash ./launch.sh --version` → **`Hermes Agent v0.16.0` on Python 3.13.14**.
+- `bash ./launch.sh doctor` → **exit 0**. `NVIDIA NIM` connectivity ✓ green; SSL CA certificate bundle
+  valid ✓ (exercises the new `@0bbf325a` SSL guard); Python env / venv / version files all ✓. Advisories
+  (non-fatal): dead `KIMI_API_KEY`, config version `v0 → v29` migration available, portable
+  venv-entry-point false-positive (`hermes` runs fine via the launcher's PATH — `--version` proves it),
+  and unconfigured optional integration keys.
+- Main menu + `[M]` model menu render; `[M] → [1] NVIDIA` (key already present) kept `NVIDIA_API_KEY`
+  unchanged (`sha256[0:16] = f179184aa935e782` before **and** after) and set
+  `model.provider = nvidia` / `model.default = deepseek-ai/deepseek-v4-flash`; `[11] Back` returns to the
+  main menu; `[6] Exit` = 0. The experimental `providers.kimchi-dev` block in `data/config.yaml` was
+  preserved (switch-model.py is idempotent).
+- **Live:** `bash ./launch.sh -z "Reply with exactly: MAC OK"` → **`MAC OK`** (exit 0).
+- A **new `@0bbf325a` advisory** flags `deepseek-ai/deepseek-v4-flash` as a vendor-prefixed slug under
+  `provider: nvidia` (it assumes vendor/model slugs belong to aggregators). NVIDIA NIM legitimately uses
+  vendor/model IDs, so this is **cosmetic** — the green connectivity check and the live `MAC OK` confirm
+  the model works as configured.
+- **Re-audited — clean.** 21 files tracked (launchers/docs/scripts only). No API keys/tokens/private keys
+  in tracked files or in full git history; `data/`, `Brain/`, `data/config.yaml`, `chrome-profile/`,
+  `data/auth/`, `src/`, `.cache/` all gitignored.
+
 ## [portable-v1.8.3] — 2026-06-14
 
 ### Windows installer hardening + storage docs (two fixes adopted from upstream `techjarves`, one found here)
