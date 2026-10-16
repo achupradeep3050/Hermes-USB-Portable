@@ -125,7 +125,7 @@ if [ ! -x "$VIRTUAL_ENV/bin/python" ]; then
     if ! "$UV_EXE" pip install --python "$VIRTUAL_ENV/bin/python" --link-mode=copy \
         -e "$SRC_DIR/hermes-agent[all]" \
         "anthropic>=0.39.0" \
-        "python-telegram-bot[webhooks]==22.6" 2>/dev/null; then
+        "python-telegram-bot[webhooks]==22.6" "playwright" 2>/dev/null; then
         "$VIRTUAL_ENV/bin/python" -m ensurepip --upgrade >/dev/null 2>&1 || true
         "$VIRTUAL_ENV/bin/python" -m pip install \
             -e "$SRC_DIR/hermes-agent[all]" \
@@ -218,8 +218,33 @@ if [ $# -gt 0 ]; then
     exit 0
 fi
 
+# Auto-spawn interactive terminal window if launched from GUI (double-click in Files / Nautilus)
+if { [ ! -t 0 ] || [ ! -t 1 ]; } && [ "${HERMES_IN_TERMINAL:-0}" -ne 1 ]; then
+    export HERMES_IN_TERMINAL=1
+    if [ "$PLATFORM" = "macos" ]; then
+        exec open -a Terminal "$PORTABLE_ROOT/launch.sh"
+    else
+        for term_bin in ptyxis gnome-terminal konsole xfce4-terminal alacritty kitty terminator tilix x-terminal-emulator xterm; do
+            if command -v "$term_bin" >/dev/null 2>&1; then
+                case "$term_bin" in
+                    ptyxis)
+                        exec ptyxis -- bash -c "cd '$PORTABLE_ROOT' && ./launch.sh; exec bash" ;;
+                    gnome-terminal)
+                        exec gnome-terminal -- bash -c "cd '$PORTABLE_ROOT' && ./launch.sh; exec bash" ;;
+                    konsole)
+                        exec konsole -e bash -c "cd '$PORTABLE_ROOT' && ./launch.sh; exec bash" ;;
+                    xfce4-terminal)
+                        exec xfce4-terminal -e "bash -c 'cd \"$PORTABLE_ROOT\" && ./launch.sh; exec bash'" ;;
+                    *)
+                        exec "$term_bin" -e bash -c "cd '$PORTABLE_ROOT' && ./launch.sh; exec bash" ;;
+                esac
+            fi
+        done
+    fi
+fi
+
 # ---------------------------------------------------------------------------
-# ANSI Colors
+# ANSI Colors & Terminal Helpers
 # ---------------------------------------------------------------------------
 ESC='\033'
 RESET="${ESC}[0m"
@@ -236,6 +261,12 @@ BRIGHT_RED="${ESC}[91m"
 WHITE="${ESC}[37m"
 BRIGHT_WHITE="${ESC}[97m"
 GRAY="${ESC}[90m"
+
+safe_clear() {
+    if [ -t 1 ]; then
+        clear 2>/dev/null || true
+    fi
+}
 
 # ---------------------------------------------------------------------------
 # Status Detection
@@ -292,9 +323,13 @@ detect_status() {
         BRAIN_PAGES=$(find "$BRAIN_VAULT" -name '*.md' -not -path '*/.obsidian/*' 2>/dev/null | wc -l | tr -d ' ')
     fi
     TELEGRAM_STATUS="Not set"
-    grep -qE '^TELEGRAM_BOT_TOKEN=.+' "$HERMES_HOME/.env" 2>/dev/null && TELEGRAM_STATUS="Configured"
+    if grep -qE '^TELEGRAM_BOT_TOKEN=.+' "$HERMES_HOME/.env" 2>/dev/null; then
+        TELEGRAM_STATUS="Configured"
+    fi
     GIT_STATUS="Not set"
-    grep -qE '^GITHUB_TOKEN=.+' "$HERMES_HOME/.env" 2>/dev/null && GIT_STATUS="Configured"
+    if grep -qE '^GITHUB_TOKEN=.+' "$HERMES_HOME/.env" 2>/dev/null; then
+        GIT_STATUS="Configured"
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -304,9 +339,9 @@ detect_status() {
 # ---------------------------------------------------------------------------
 gateway_notify() {
     local tok chat
-    tok=$(grep -m1 '^TELEGRAM_BOT_TOKEN=' "$HERMES_HOME/.env" 2>/dev/null | cut -d= -f2- | tr -d "\"'" )
-    chat=$(grep -m1 '^TELEGRAM_ALLOWED_USERS=' "$HERMES_HOME/.env" 2>/dev/null | cut -d= -f2- | tr -d "\"'" | cut -d, -f1)
-    [ -z "$chat" ] && chat=$(grep -m1 '^TELEGRAM_CHAT_ID=' "$HERMES_HOME/.env" 2>/dev/null | cut -d= -f2- | tr -d "\"'")
+    tok=$(grep -m1 '^TELEGRAM_BOT_TOKEN=' "$HERMES_HOME/.env" 2>/dev/null | cut -d= -f2- | tr -d "\"'" || true)
+    chat=$(grep -m1 '^TELEGRAM_ALLOWED_USERS=' "$HERMES_HOME/.env" 2>/dev/null | cut -d= -f2- | tr -d "\"'" | cut -d, -f1 || true)
+    [ -z "$chat" ] && chat=$(grep -m1 '^TELEGRAM_CHAT_ID=' "$HERMES_HOME/.env" 2>/dev/null | cut -d= -f2- | tr -d "\"'" || true)
     if [ -n "$tok" ] && [ -n "$chat" ] && command -v curl >/dev/null 2>&1; then
         curl -s -m 10 "https://api.telegram.org/bot${tok}/sendMessage" \
             -d chat_id="${chat}" \
@@ -319,7 +354,7 @@ gateway_notify() {
 # Main Menu
 # ---------------------------------------------------------------------------
 show_menu() {
-    clear
+    echo ""
     echo ""
     echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
     echo -e "${BOLD}${BRIGHT_WHITE}                    HERMES PORTABLE LAUNCHER${RESET}"
@@ -328,8 +363,8 @@ show_menu() {
     echo ""
     echo -e " ${DIM}Device${RESET}   ${WHITE}${DEVICE_HOST}${RESET} ${GRAY}·${RESET} ${CYAN}${PRETTY_OS}${RESET}"
     echo -e " ${DIM}Setup${RESET}    ${SETUP_COLOR}${SETUP_ICON}${RESET} ${WHITE}${SETUP_STATUS}${RESET}"
-    [ -n "$PROVIDER_NAME" ] && echo -e " ${DIM}Provider${RESET} ${CYAN}${PROVIDER_NAME}${RESET}"
-    [ -n "$MODEL_NAME" ] && echo -e " ${DIM}Model${RESET}    ${WHITE}${MODEL_NAME}${RESET}"
+    if [ -n "$PROVIDER_NAME" ]; then echo -e " ${DIM}Provider${RESET} ${CYAN}${PROVIDER_NAME}${RESET}"; fi
+    if [ -n "$MODEL_NAME" ]; then echo -e " ${DIM}Model${RESET}    ${WHITE}${MODEL_NAME}${RESET}"; fi
     if [ "${BRAIN_PAGES:-0}" -gt 0 ] 2>/dev/null; then
         echo -e " ${DIM}Brain${RESET}    ${BRIGHT_GREEN}[OK]${RESET} ${WHITE}${BRAIN_PAGES} pages${RESET} ${GRAY}(Obsidian vault)${RESET}"
     else
@@ -356,7 +391,7 @@ show_menu() {
     echo ""
     echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
     echo ""
-    read -p "$(echo -e "${BRIGHT_CYAN}Select option: ${RESET}")" choice
+    if ! read -r -p "$(echo -e "${BRIGHT_CYAN}Select option: ${RESET}")" choice 2>/dev/null; then echo ""; echo -e "${GRAY}Non-interactive input stream ended. Exiting.${RESET}"; exit 0; fi
 
     case "$choice" in
         1) menu_chat ;;
@@ -373,14 +408,29 @@ show_menu() {
 }
 
 menu_chat() {
-    clear
-    hermes
+    safe_clear
+    if [ "$SETUP_STATUS" = "Not configured" ] && [ -z "$GITHUB_TOKEN_VAL" ]; then
+        echo ""
+        echo -e "${BRIGHT_YELLOW}[!] API key or model login not configured yet.${RESET}"
+        echo -e "${GRAY}Press [2] Setup or [M] Switch Model from the main menu to add an API key.${RESET}"
+        echo ""
+    fi
+    hermes "$@"
+    local rc=$?
+    echo ""
+    if [ $rc -ne 0 ]; then
+        echo -e "${BRIGHT_RED}[!] Hermes exited with code $rc.${RESET}"
+    fi
+    read -r -p "Press Enter to return to main menu ..." choice 2>/dev/null || true
+    detect_status
     show_menu
 }
 
 menu_setup() {
-    clear
+    safe_clear
     hermes setup
+    echo ""
+    read -r -p "Press Enter to return to main menu ..." choice 2>/dev/null || true
     detect_status
     show_menu
 }
@@ -391,9 +441,9 @@ menu_setup() {
 _apply_model() {   # provider  model  base_url(""=none)  [ENVKEY=VALUE]
     local p="$1" m="$2" b="$3" e="$4"
     if [ -n "$e" ]; then
-        python "$PORTABLE_ROOT/scripts/switch-model.py" --config "$HERMES_HOME/config.yaml" --env "$HERMES_HOME/.env" --provider "$p" --model "$m" --base-url "$b" --set-env "$e"
+        python3 "$PORTABLE_ROOT/scripts/switch-model.py" --config "$HERMES_HOME/config.yaml" --env "$HERMES_HOME/.env" --provider "$p" --model "$m" --base-url "$b" --set-env "$e"
     else
-        python "$PORTABLE_ROOT/scripts/switch-model.py" --config "$HERMES_HOME/config.yaml" --env "$HERMES_HOME/.env" --provider "$p" --model "$m" --base-url "$b"
+        python3 "$PORTABLE_ROOT/scripts/switch-model.py" --config "$HERMES_HOME/config.yaml" --env "$HERMES_HOME/.env" --provider "$p" --model "$m" --base-url "$b"
     fi
 }
 
@@ -426,7 +476,7 @@ menu_model_gemini_oauth() {
 }
 
 menu_model() {
-    clear
+    echo ""
     echo ""
     echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
     echo -e "${BOLD}${BRIGHT_WHITE}                  Switch Model / Provider${RESET}"
@@ -531,7 +581,7 @@ _http_ok() {
     if command -v curl >/dev/null 2>&1; then
         curl -fsS -o /dev/null "$1" 2>/dev/null
     else
-        python - "$1" <<'PY' 2>/dev/null
+        python3 - "$1" <<'PY' 2>/dev/null
 import sys, urllib.request
 try:
     urllib.request.urlopen(sys.argv[1], timeout=2)
@@ -553,7 +603,7 @@ _open_url() {
 }
 
 menu_dashboard() {
-    clear
+    safe_clear
     echo -e "${BRIGHT_YELLOW}Hermes Dashboard${RESET}  ${GRAY}(web UI — config, API keys, sessions, chat)${RESET}"
     echo -e "${GRAY}Served on localhost only at ${WHITE}http://127.0.0.1:9119${RESET}${GRAY} (no keys exposed on the network).${RESET}"
     echo ""
@@ -609,7 +659,7 @@ menu_dashboard() {
 }
 
 menu_eject() {
-    clear
+    safe_clear
     # Saves sessions, organises & syncs the Brain, then ejects the USB.
     bash "$PORTABLE_ROOT/scripts/safe-eject.sh"
     rc=$?
@@ -625,7 +675,7 @@ menu_eject() {
 }
 
 menu_exit() {
-    clear
+    echo ""
     echo ""
     echo -e "${GRAY}Goodbye!${RESET}"
     echo ""
@@ -636,7 +686,7 @@ menu_exit() {
 # Advanced Menu
 # ---------------------------------------------------------------------------
 show_advanced() {
-    clear
+    echo ""
     echo ""
     echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
     echo -e "${BOLD}${BRIGHT_WHITE}                       Advanced Options${RESET}"
@@ -651,7 +701,7 @@ show_advanced() {
     echo ""
     echo -e "${BRIGHT_CYAN}----------------------------------------------------------------${RESET}"
     echo ""
-    read -p "$(echo -e "${BRIGHT_CYAN}Select option: ${RESET}")" choice
+    if ! read -r -p "$(echo -e "${BRIGHT_CYAN}Select option: ${RESET}")" choice 2>/dev/null; then echo ""; echo -e "${GRAY}Non-interactive input stream ended. Exiting.${RESET}"; exit 0; fi
 
     case "$choice" in
         1) adv_doctor ;;
@@ -665,14 +715,14 @@ show_advanced() {
 }
 
 adv_doctor() {
-    clear
+    safe_clear
     hermes doctor
     read -p "Press Enter to continue ..."
     show_advanced
 }
 
 adv_logs() {
-    clear
+    safe_clear
     if [ -f "$HERMES_HOME/logs/gateway.log" ]; then
         echo -e "${CYAN}=== Gateway Log (last 20 lines) ===${RESET}"
         tail -n 20 "$HERMES_HOME/logs/gateway.log"
@@ -685,7 +735,7 @@ adv_logs() {
 }
 
 adv_config() {
-    clear
+    safe_clear
     hermes config edit
     show_advanced
 }
@@ -711,7 +761,7 @@ adv_restart() {
 }
 
 adv_update() {
-    clear
+    safe_clear
     hermes update
     read -p "Press Enter to continue ..."
     show_advanced
@@ -766,7 +816,7 @@ EOF
 # Startup splash — shows where we are, what loaded, brain optimized, etc.
 # ---------------------------------------------------------------------------
 startup_banner() {
-    clear
+    echo ""
     echo ""
     echo -e "${BRIGHT_CYAN}================================================================${RESET}"
     echo -e "${BOLD}${BRIGHT_WHITE}            HERMES PORTABLE  —  starting up${RESET}"
@@ -783,8 +833,6 @@ startup_banner() {
     echo -e "  ${BRIGHT_GREEN}OK${RESET}  Telegram ${WHITE}${TELEGRAM_STATUS}${RESET}  ${GRAY}|${RESET}  Git ${WHITE}${GIT_STATUS}${RESET}"
     echo -e "  ${BRIGHT_GREEN}OK${RESET}  This device remembered ${GRAY}(Brain/devices/${DEVICE_SLUG}.md)${RESET}"
     echo ""
-    echo -e "  ${DIM}Opening dashboard ...${RESET}"
-    sleep 2
 }
 
 # ---------------------------------------------------------------------------

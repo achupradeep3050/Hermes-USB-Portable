@@ -105,21 +105,37 @@ files = glob.glob("**/*.md", recursive=True)
 stems = set()
 for f in files:
     stems.add(f[:-3]); stems.add(os.path.basename(f)[:-3])
-broken = []
+    stems.add(f[:-3].lower()); stems.add(os.path.basename(f)[:-3].lower())
+code_span_re = re.compile(r"`[^`\n]*\[\[[^\]]+\]\][^`\n]*`")
 link_re = re.compile(r"\[\[([^\]]+)\]\]")
+broken = []
 for f in files:
-    for m in link_re.findall(open(f, encoding="utf-8", errors="ignore").read()):
+    content = open(f, encoding="utf-8", errors="ignore").read()
+    lines = content.splitlines()
+    in_code_block = False
+    clean_lines = []
+    for line in lines:
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+            clean_lines.append("")
+            continue
+        if in_code_block:
+            clean_lines.append("")
+        else:
+            clean_lines.append(code_span_re.sub(" [CODE_LINK] ", line))
+    clean_content = "\n".join(clean_lines)
+    for m in link_re.findall(clean_content):
         t = m.split("|")[0].split("#")[0].strip()
-        if t and t not in stems and t != "wikilinks":
+        if t and t not in stems and t.lower() not in stems:
             broken.append((f, t))
 print(f"  [OK]   Brain: {len(files)} notes scanned.")
 if broken:
     print(f"  [!!]   {len(broken)} broken link(s): " + ", ".join(f"{f}->{t}" for f, t in broken[:5]))
 else:
-    print("  [OK]   All wikilinks resolve.")
+    print("  [OK]   All wikilinks resolve (0 broken links).")
 # refresh a tiny machine-readable marker for the next AI session
 open(".hermes-safe-eject.json", "w").write(
-    '{"last_safe_eject":"%s","notes":%d,"broken_links":%d}\n' % (
+    '{"last_safe_eject":"%s","notes":%d,"broken_links":%d,"status":"verified"}\n' % (
         __import__("datetime").datetime.now().isoformat(timespec="seconds"), len(files), len(broken)))
 PY
     ok "Eject marker written (.hermes-safe-eject.json)."

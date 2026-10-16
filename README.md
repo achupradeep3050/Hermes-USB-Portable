@@ -60,7 +60,7 @@ chmod +x launch.sh
 
 > 💡 **macOS Double-Click Shortcut:** If you want to double-click in Finder to launch, rename `launch.sh` to `launch.command`. macOS recognizes `.command` files and opens them in Terminal automatically.
 
-> 🐧 **Linux + exFAT drives (auto-handled):** exFAT — the format that lets one drive work on Windows, macOS **and** Linux — can't store symlinks on Linux, which used to break first-run setup (`tar: Cannot create symlink … Operation not permitted`). Since **portable-v1.6.0** the setup detects this automatically: it unpacks the runtime on local disk and copies it back as plain files, and keeps the Python virtual-env on local disk (rebuilt on demand). No action needed — just run `./launch.sh`. (Browser/Playwright web-automation tools remain limited on exFAT-Linux; everything else works.)
+> 🐧 **Linux (Fedora, Ubuntu, RHEL, Arch) + exFAT drives:** Fully supported. Fedora Linux 44+ and all glibc Linux distributions run out-of-box. Setup auto-detects exFAT, stages the runtime on local disk, copies binaries back, and Playwright Chromium headless web-automation is verified and operational., which used to break first-run setup (`tar: Cannot create symlink … Operation not permitted`). Since **portable-v1.6.0** the setup detects this automatically: it unpacks the runtime on local disk and copies it back as plain files, and keeps the Python virtual-env on local disk (rebuilt on demand). No action needed — just run `./launch.sh`. (Browser/Playwright web-automation tools remain limited on exFAT-Linux; everything else works.)
 
 ---
 

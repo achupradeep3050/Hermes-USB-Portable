@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Hermes Agent Portable
+Comment=AI Agent for Everyone — Portable Launcher
+Exec=bash -c "cd \"$(dirname \"%k\")\" && ./launch.sh"
+Icon=utilities-terminal
+Terminal=true
+Categories=Development;Utility;System;
+Keywords=AI;Agent;Hermes;Obsidian;

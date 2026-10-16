@@ -23,3 +23,8 @@ Brain/
 # Portable Chrome profile + downloads (contain credentials, cookies, cached data)
 chrome-profile/
 chrome-downloads/
+
+# OS metadata folders
+.fseventsd/
+System Volume Information/
+.Spotlight-V100/
