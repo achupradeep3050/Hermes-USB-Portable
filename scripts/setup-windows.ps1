@@ -23,6 +23,14 @@ $TempDir    = Join-Path $RuntimeDir "_temp"
 
 New-Item -ItemType Directory -Force -Path $RuntimeDir, $SrcDir, $BinDir, $TempDir | Out-Null
 
+# Keep package caches on the drive. launch.bat redirects APPDATA/LOCALAPPDATA/HOME
+# before it calls this script, but a direct run (or a repair started from another
+# shell) would fill the host profile instead - uv's cache alone grows by hundreds
+# of MB per install and is the one thing that silently escapes the folder.
+$env:UV_CACHE_DIR  = Join-Path $CacheDir "uv-cache"
+$env:PIP_CACHE_DIR = Join-Path $CacheDir "pip-cache"
+New-Item -ItemType Directory -Force -Path $env:UV_CACHE_DIR, $env:PIP_CACHE_DIR | Out-Null
+
 # ---------------------------------------------------------------------------
 # Download URLs (pinned for reliability)
 # ---------------------------------------------------------------------------
@@ -235,7 +243,10 @@ if (Test-Path $readyFlag) {
 # ---------------------------------------------------------------------------
 # 1. Portable Python
 # ---------------------------------------------------------------------------
-Write-Step "Installing portable Python 3.13 ..."
+# Derive the version from the download URL so the message cannot go stale again
+# (it said "3.13" while 3.14.9 was being installed since portable-v1.9.0).
+$PythonLabel = if ($PythonUrl -match 'cpython-(\d+\.\d+\.\d+)') { $Matches[1] } else { "pinned" }
+Write-Step "Installing portable Python $PythonLabel ..."
 # Archive name carries the version so a bump never reuses an old python.tar.gz.
 $pyArchive = Join-Path $RuntimeDir "python-3.14.9.tar.gz"
 Get-ChildItem $RuntimeDir -Filter "python*.tar.gz" -ErrorAction SilentlyContinue |
@@ -396,6 +407,56 @@ if ($verLine -and $comLine -and ($HermesRef -ne "main")) {
 Write-Done "Dependencies installed"
 
 # ---------------------------------------------------------------------------
+# 8b. Portable Git for Windows (the bash contract)
+# ---------------------------------------------------------------------------
+# Hermes runs every shell command through bash and resolves the shell from its
+# pm store; without it every tool call dies with "No shell found. Hermes needs
+# bash (Git for Windows on Windows)". The MinGit archive from the runtime step
+# only ships git.exe, so a fresh bundle cannot run a single command until pm has
+# staged PortableGit's usr\bin\bash.exe. Windows only - on POSIX Hermes uses the
+# system git/bash by design (see the platform gaps on pm/packages.py's Git).
+#
+# HERMES_HOME must be set for this call: setup inherits it from launch.bat, but a
+# direct run would otherwise stage the tools in the host profile
+# (%USERPROFILE%\.hermes) and silently break the portable promise.
+Write-Step "Installing portable bash (Git for Windows) ..."
+$savedHermesHome = $env:HERMES_HOME
+$env:HERMES_HOME = Join-Path $Root "data"
+New-Item -ItemType Directory -Force -Path $env:HERMES_HOME | Out-Null
+$hermesExe = Join-Path $venvDir "Scripts\hermes.exe"
+if (Test-Path $hermesExe) { & $hermesExe pm install git 2>&1 | Out-Null }
+if ($savedHermesHome) { $env:HERMES_HOME = $savedHermesHome } else { Remove-Item Env:HERMES_HOME -ErrorAction SilentlyContinue }
+# Verify the outcome instead of trusting the exit code: in an elevated shell the
+# pm run reports an ACL-grant error while still installing the tool.
+$bashExe = Get-ChildItem (Join-Path $Root "data\tools") -Directory -Filter "git-*" -ErrorAction SilentlyContinue |
+    ForEach-Object { Join-Path $_.FullName "usr\bin\bash.exe" } |
+    Where-Object { Test-Path $_ } | Select-Object -First 1
+if ($bashExe) {
+    Write-Done "bash ready"
+} else {
+    Write-Warn "bash install failed - shell tools will not work (run: hermes pm install git)"
+}
+
+# ---------------------------------------------------------------------------
+# 8c. Playwright package (optional, browser tools)
+# ---------------------------------------------------------------------------
+# Playwright is NOT part of the [all] extra - it ships with google-meet - so
+# `python -m playwright ...` raised ModuleNotFoundError and the browser step
+# below silently skipped. install-deps.sh installs the same pin on Unix; keep
+# PLAYWRIGHT_PIN in both files in sync.
+$PlaywrightPin = "playwright==1.64.1"
+Write-Step "Installing Playwright (optional) ..."
+& $uvExe pip install --python $venvPython --link-mode=copy $PlaywrightPin 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    & $venvPython -m pip install $PlaywrightPin 2>&1 | Out-Null
+}
+if ($LASTEXITCODE -eq 0) {
+    Write-Done "Playwright ready"
+} else {
+    Write-Warn "Playwright install failed (browser tools will be limited)"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Install messaging dependencies (Telegram, etc.)
 # ---------------------------------------------------------------------------
 # Hermes [all] intentionally excludes messaging deps for size.
@@ -419,12 +480,20 @@ if ($LASTEXITCODE -ne 0) {
 # ---------------------------------------------------------------------------
 # 10. Install Playwright browsers (optional, for web tools)
 # ---------------------------------------------------------------------------
+# Keep the browsers on the drive: both launchers point PLAYWRIGHT_BROWSERS_PATH
+# at the same directory. The old block could not fail: PowerShell does not throw
+# on a non-zero exit code and stderr went to $null, so setup printed "ready"
+# even when nothing was installed.
 Write-Step "Installing Playwright browsers (optional) ..."
 $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $RuntimeDir "playwright"
-try {
-    & $venvPython -m playwright install chromium 2>$null
+& $venvPython -m playwright install chromium 2>&1 | Out-Null
+$pwExit = $LASTEXITCODE
+$pwDir = $env:PLAYWRIGHT_BROWSERS_PATH
+$pwFound = (Test-Path $pwDir) -and
+    ((Get-ChildItem $pwDir -Filter "chromium*" -ErrorAction SilentlyContinue | Measure-Object).Count -gt 0)
+if ($pwExit -eq 0 -and $pwFound) {
     Write-Done "Playwright browsers ready"
-} catch {
+} else {
     Write-Warn "Playwright browser install failed (web tools may be limited)"
 }
 
