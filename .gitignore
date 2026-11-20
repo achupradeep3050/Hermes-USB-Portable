@@ -5,6 +5,18 @@ src/
 *.flag
 *.log
 
+# Secrets - never publish. data/ already covers the real .env (that is where the
+# API keys live), but keep the patterns explicit so a stray copy in the repo
+# root, a script directory or a docs example can never be committed by accident.
+.env
+.env.*
+*.env
+!.env.example
+!*.env.example
+**/auth.json
+**/.git-credentials
+**/credentials.json
+
 # Personal Obsidian brain (long-term memory) — travels on the drive, NOT in the public repo.
 # Sync it to a PRIVATE repo if you want it backed up.
 Brain/
