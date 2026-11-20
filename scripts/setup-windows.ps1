@@ -396,6 +396,37 @@ if ($verLine -and $comLine -and ($HermesRef -ne "main")) {
 Write-Done "Dependencies installed"
 
 # ---------------------------------------------------------------------------
+# 8b. Portable Git for Windows (the bash contract)
+# ---------------------------------------------------------------------------
+# Hermes runs every shell command through bash and resolves the shell from its
+# pm store; without it every tool call dies with "No shell found. Hermes needs
+# bash (Git for Windows on Windows)". The MinGit archive from the runtime step
+# only ships git.exe, so a fresh bundle cannot run a single command until pm has
+# staged PortableGit's usr\bin\bash.exe. Windows only - on POSIX Hermes uses the
+# system git/bash by design (see the platform gaps on pm/packages.py's Git).
+#
+# HERMES_HOME must be set for this call: setup inherits it from launch.bat, but a
+# direct run would otherwise stage the tools in the host profile
+# (%USERPROFILE%\.hermes) and silently break the portable promise.
+Write-Step "Installing portable bash (Git for Windows) ..."
+$savedHermesHome = $env:HERMES_HOME
+$env:HERMES_HOME = Join-Path $Root "data"
+New-Item -ItemType Directory -Force -Path $env:HERMES_HOME | Out-Null
+$hermesExe = Join-Path $venvDir "Scripts\hermes.exe"
+if (Test-Path $hermesExe) { & $hermesExe pm install git 2>&1 | Out-Null }
+if ($savedHermesHome) { $env:HERMES_HOME = $savedHermesHome } else { Remove-Item Env:HERMES_HOME -ErrorAction SilentlyContinue }
+# Verify the outcome instead of trusting the exit code: in an elevated shell the
+# pm run reports an ACL-grant error while still installing the tool.
+$bashExe = Get-ChildItem (Join-Path $Root "data\tools") -Directory -Filter "git-*" -ErrorAction SilentlyContinue |
+    ForEach-Object { Join-Path $_.FullName "usr\bin\bash.exe" } |
+    Where-Object { Test-Path $_ } | Select-Object -First 1
+if ($bashExe) {
+    Write-Done "bash ready"
+} else {
+    Write-Warn "bash install failed - shell tools will not work (run: hermes pm install git)"
+}
+
+# ---------------------------------------------------------------------------
 # 9. Install messaging dependencies (Telegram, etc.)
 # ---------------------------------------------------------------------------
 # Hermes [all] intentionally excludes messaging deps for size.
