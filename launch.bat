@@ -278,12 +278,20 @@ if defined GATEWAY_PID (
 )
 
 set "HERMES_VERSION=unknown"
-if exist "%SRC_DIR%\hermes-agent\hermes_cli\__init__.py" (
+REM The pin file is authoritative, exactly as in launch.sh: since hermes-agent
+REM v0.22 the module only annotates __version__ (``__version__: str``) and no
+REM longer assigns a literal, so the old parse produced an empty "Version v="
+REM line. Keep the __init__ parse as a fallback for pre-pin trees only.
+if exist "%SRC_DIR%\hermes-agent\.portable-ref" (
+    set /p HERMES_VERSION=<"%SRC_DIR%\hermes-agent\.portable-ref"
+    if "!HERMES_VERSION:~0,1!"=="v" set "HERMES_VERSION=!HERMES_VERSION:~1!"
+) else if exist "%SRC_DIR%\hermes-agent\hermes_cli\__init__.py" (
     for /f "usebackq tokens=3" %%a in (`findstr /R /C:"__version__" "%SRC_DIR%\hermes-agent\hermes_cli\__init__.py"`) do (
         set "rawver=%%a"
         set "HERMES_VERSION=!rawver:"=!"
     )
 )
+if not defined HERMES_VERSION set "HERMES_VERSION=unknown"
 
 REM Brain (Obsidian) + connection status
 set "BRAIN_PAGES=0"

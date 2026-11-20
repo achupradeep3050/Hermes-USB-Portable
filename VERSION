@@ -1,11 +1,11 @@
 # Hermes-USB-Portable — version pin
 # Pairs the portable wrapper version with the exact bundled hermes-agent it ships.
 
-portable_version:        portable-v1.9.1
-hermes_agent_version:    0.23.2
-hermes_agent_ref:        v0.23.2
+portable_version:        portable-v1.9.2
+hermes_agent_version:    0.23.3
+hermes_agent_ref:        v0.23.3
 hermes_agent_upstream:   NousResearch/hermes-agent
-hermes_agent_commit:     ae2a81ccc00e9b7c06301523e5bb09608397149c
+hermes_agent_commit:     caafe5389ae585ef77387a962aee05b1bcf17029
 synced_on:               2026-11-20
 
 # `hermes_agent_ref` is the ONE pin every setup script and launcher reads
@@ -20,6 +20,11 @@ synced_on:               2026-11-20
 #   uv:         0.11.21
 #   ripgrep:    15.1.0
 #   playwright: 1.64.1   (matches the chromium-1234 build already on the drive)
+
+# v1.9.2 - pin only: hermes-agent v0.23.2 -> v0.23.3 (patch rollup, ~370 PRs since
+#          v0.23.2). requires-python is still >=3.11,<3.15, so the bundled
+#          Python 3.14.9 remains valid and no runtime pin moves. Wrapper files
+#          unchanged; the pin move makes setup re-run on the next launch.
 
 # v1.9.0 — Mac fix, Claude subscription sign-in, pinned Hermes Agent release.
 #          (1) THE MAC BUG: data/.env carried HERMES_HOME=/run/media/<user>/HERMES/data
