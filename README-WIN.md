@@ -86,7 +86,8 @@ Optional: add the folder to your `PATH`. `hermes` then works from any directory,
 `hermes.cmd` resolves its own location and every path from it.
 
 > Prefer the menu? `hermes launcher` (or a double-click on `launch.bat`) still opens the old
-> launcher with setup, repair, update, gateway, dashboard, Chrome and the model switcher.
+> launcher with chat, setup/reconfigure, the gateway switch, the model switcher and the
+> Advanced Options (Doctor, logs, config, gateway restart, its own update entry).
 
 ---
 
@@ -181,7 +182,7 @@ launcher. Exit codes are passed through unchanged, so scripts and pipelines can 
 ```text
 hermes-portable\
 ├── hermes.cmd                  # this launcher (CLI-shaped entry point)
-├── launch.bat                  # legacy menu (setup, repair, dashboard, Chrome, models)
+├── launch.bat                  # legacy menu (chat, setup, gateway, models, advanced)
 ├── VERSION                     # portable_version + hermes_agent_ref pin
 ├── scripts\
 │   └── setup-windows.ps1       # first-run installation and repair
@@ -257,11 +258,11 @@ GEMINI_API_KEY=
 
 Configure interactively with `hermes setup`, switch models with `hermes model`, or edit
 `data\config.yaml` directly. `hermes config` opens the file in your editor, `hermes config get
-model.default` prints a single value, `hermes config set model.default <name>` changes it.
+model.default` prints a single value, and `hermes config edit` opens the file in your editor.
 
-The launcher menu (`hermes launcher`) still offers the model switcher, the Google and
-subscription sign-ins, and the uncensored provider presets described in
-[README.md](README.md).
+The launcher menu (`hermes launcher`) still offers the model switcher, including the Google and
+subscription sign-ins; the uncensored provider presets are plain `providers:` entries and are
+described in [README.md](README.md).
 
 ---
 
