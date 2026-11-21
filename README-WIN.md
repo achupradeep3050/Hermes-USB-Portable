@@ -13,6 +13,14 @@
   No global installation. No host pollution. Every conversation, key, memory and skill stays inside the folder.
 </p>
 
+<p align="center">
+  <a href="https://youtu.be/gL220WHXWeo" target="_blank">
+    <img src="https://img.youtube.com/vi/gL220WHXWeo/maxresdefault.jpg" alt="Hermes Portable Setup Walkthrough Video" width="700" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.15);">
+  </a>
+  <br>
+  <em>📺 <strong>Watch the Setup & Demo Video:</strong> Click the image above for the step-by-step walkthrough. The recording shows the classic <code>launch.bat</code> menu — <code>hermes install</code> performs the same setup from the terminal.</em>
+</p>
+
 This is the **Windows edition** of the portable build. It documents `hermes.cmd`, the
 lightweight launcher that sits next to the old `launch.bat` menu. The cross-platform
 description, macOS and Linux instructions and the Ventoy section live in
